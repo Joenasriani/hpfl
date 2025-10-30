@@ -18,7 +18,7 @@ export interface UltimateIdea {
   novelSolutions: string;
 }
 
-export interface TrioIdea {
+export interface HybridIdea {
   ideaName:string;
   whatItIs: string;
   reasoning: string;
@@ -27,13 +27,25 @@ export interface TrioIdea {
 
 export interface IdeaGenerationResult {
   thinkingProcess: string;
-  ideas: TrioIdea[];
+  ideas: HybridIdea[];
+}
+
+export interface DIYStep {
+  step: number;
+  title: string;
+  description: string;
+  actionableItems: string[];
 }
 
 export interface Blueprint {
   keyFeatures: string[];
   targetAudience: string;
   monetizationStrategy: string[];
+  valueProposition: string;
+  userJourney: string;
+  techStack: string[];
+  goToMarketPlan: string[];
+  diyGuide: DIYStep[];
 }
 
 export enum AppStep {

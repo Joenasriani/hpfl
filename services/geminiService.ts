@@ -1,5 +1,5 @@
 import { GoogleGenAI, Type } from "@google/genai";
-import type { AnalysisResult, TrioIdea, Blueprint, IdeaGenerationResult } from '../types';
+import type { AnalysisResult, HybridIdea, Blueprint, IdeaGenerationResult } from '../types';
 
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
 
@@ -59,86 +59,154 @@ Provide your response as a single, valid JSON object, without any surrounding te
 }
 
 
-export async function generateTrioHybridIdeas(analysis1: AnalysisResult, analysis2: AnalysisResult, analysis3: AnalysisResult): Promise<IdeaGenerationResult> {
-    const prompt = `Based on the following in-depth analysis of three products, generate the top 3 most innovative "Hybrid Product Ideas".
+export async function generateHybridIdeas(
+    analyses: AnalysisResult[], 
+    existingIdeas?: HybridIdea[]
+): Promise<IdeaGenerationResult> {
+    const workflow = `
+[The 11-phase Reverse-Engineering Genius Systematic Inventor Workflow]
 
-**Product 1: ${analysis1.productName}**
-- Strengths: ${analysis1.strengths.join(', ')}
-- Flaws: ${analysis1.flaws.join(', ')}
+Phase 0 – Preparation & Mindset
+1. Define your invention horizon: need-based, high-end entertainment, or hybrid.
+2. Set risk tolerance (acceptable failure rate).
+3. Set timebox per product analysis (hours/days).
+4. Activate bias checkpoint: note and reject common cognitive biases (confirmation, anchoring, recency).
+5. Decide the number of new concepts allowed (top 2–3).
+6. Conduct weekly mindset check: Which assumption did I accept this week that could be wrong? What unrelated domain can I link to this work? What small experiment can I run immediately?
 
-**Product 2: ${analysis2.productName}**
-- Strengths: ${analysis2.strengths.join(', ')}
-- Flaws: ${analysis2.flaws.join(', ')}
+---
+Phase 1 – Product Deconstruction (per product, 2–5 products)
+7. Record quick facts: name, purpose, launch date, user base, platforms, tech stack, revenue model, owner.
+8. Define Job-to-Be-Done (JTBD): verb phrase describing what users hire the product to do.
+9. Map context → trigger → desired outcomes → emotional dimension.
+10. Collect evidence: Quantitative metrics and Qualitative metrics. Rate evidence quality (1–5).
+11. Build feature map (MoSCoW classification): Must / Should / Could / Won’t.
+12. Identify overbuilt, underused, or bloated features; mark for removal.
+13. List top 3 “missing features” or requested enhancements.
+14. Scan for adjacent features / modalities (social, AI, AR, haptics).
+15. Audit technical architecture: dependencies, single points of failure, tech debt, scalability.
+16. Estimate engineering effort for refactor, extension, or merge.
+17. Check licensing / API / IP / regulatory constraints.
+18. Enumerate failure modes and edge cases.
+19. Identify security, privacy, and safety risks with remediation actions.
+20. Evaluate business and unit economics: revenue streams, CAC, LTV, pricing model, margin assumptions.
+21. Map retention/engagement patterns and funnel leaks.
+22. Identify competitive landscape: substitutes, indirect competition, defensibility.
+23. Note market/tech trends and obsolescence risk.
+24. Run red-flag detector: privacy, vendor lock, legal/IP, UX dark patterns, negative economics, scaling hazards, reputation risks. Estimate remediation cost.
+25. Synthesize missed pluses / opportunity backlog: cross-domain, inversion, constraint exploration.
 
-**Product 3: ${analysis3.productName}**
-- Strengths: ${analysis3.strengths.join(', ')}
-- Flaws: ${analysis3.flaws.join(', ')}
+---
+Phase 2 – Comparative Mapping (across all products)
+26. Create feature & capability grid for all products.
+27. Highlight overlaps, contradictions, unused synergies.
+28. Identify recurrent themes, strengths, weaknesses, gaps.
+29. Identify cross-domain bridges and opportunities not yet attempted.
 
-Before you create the ideas, you must use the following thinking framework to guide your ideation process:
+---
+Phase 3 – Hypothesis & Idea Generation
+30. Generate hypotheses: Merge strong features, solve weaknesses with strengths, convert limitations, add new layers (sensory, social, emotional), simplify, introduce dynamic behavior.
+31. Apply adjacent expansion: new audience, field, or ecosystem.
+32. Generate 10–30 seed hypotheses.
 
-[The 7-Category Invention Framework]
+---
+Phase 4 – Evaluation & Prioritization
+33. Preliminary filter: remove ideas violating fundamental constraints.
+34. Score remaining hypotheses on: Human impact, emotional/entertainment value, technical feasibility, uniqueness, Impact-Effort Matrix.
+35. Select top 2–3 hypotheses.
 
-- Foundational Mindset
-Ask "Why?" and "What if?"
-Be insatiably curious.
-Find the friction and the unspoken need.
-Observe how people really behaved and said/wrote/reviewed about the product.
-Break the problem down to its first principles.
-Connect the unconnected.
-Treat failure as data.
+---
+Phase 5 – Concept Definition
+36. Define temporary name and tagline.
+37. Define target user, context, problem/desire addressed.
+38. Outline core functionality and tech stack.
+39. State differentiator (what makes it unique).
+40. List 3–5 “What if” questions that generated this concept.
 
-- Flaw, Con, & Gap Analysis
-Focus on the flaws: What are the biggest cons and user annoyances?
-Build the "anti-product": What new product exists only to solve P1's biggest con?
-Identify the single biggest shared flaw across all products.
-Generate a "fix" for this significant gap.
-Can a strength from Product 1 be used to solve a flaw in Product 2?
-Turn a flaw into a feature: Can that "con" be repositioned as a "pro" in a new context?
-What's the easiest user annoyance to solve right now?
+---
+Phase 6 – Prototype & Experimentation
+41. Build minimal viable proof (VR demo, AI simulation, click mock).
+42. Define experiment: hypothesis, success metric, duration, sample size, observation method.
+43. Run user observation / testing.
+44. Capture data, sentiment, surprises.
 
-- Hybrid & Feature Combination
-Combine the core function of P1 and P2.
-Build a "Best Parts" product (P1's top feature + P2's + P3's).
-What if P1's sensor meets P3's algorithm?
-Create the "1 + 1 = 3" hybrid
+---
+Phase 7 – Iteration & Pivot
+45. Accept, refine, or discard concept based on signals.
+46. If core idea fails but incidental value emerges → pivot.
+47. Document all learnings and pivot paths.
 
-- Market & Context Shift
-Who is the opposite of the current user?
-Design for this new, unmet audience.
-Shift the context: from "leisure" to "productivity"? Or "home" to "industrial"?
-Unbundle: Can one popular feature become its own cheap, standalone product?
+---
+Phase 8 – Post-Creation Reflection
+48. Which assumptions were disproven?
+49. What emerged accidentally with more value?
+50. Which biases influenced design thinking?
+51. What is the next micro-experiment?
+52. Update inventor mental model for next cycle.
 
-- Ecosystem & Enhancement
-What single product enhances P1, P2, and P3 simultaneously?
-Design an accessory, a universal adapter, or a software dashboard.
+---
+Phase 9 – Roadmap & Gating
+53. Schedule further work only after risk assumptions are validated.
+54. Set checkpoints (go/no-go based on metrics).
+55. Version teardown and concept artifacts for future audits.
+56. Re-run scoring matrix quarterly to detect drift.
+57. Archive retired products with post-mortem lessons.
+58. Enforce two-week max for initial teardown per product.
 
-- Iterative Generation Loop
-Generate the first batch (Ideas 1, 2, 3).
-Generate the next batch.
-Treat all prior ideas as new ingredients.
-Feed all outputs back in as new inputs.
-Analyze the entire pool (Originals + Ideas 1-6).
-Combine the combinations.
-Cross-pollinate: What if Idea 2 and Idea 5 merge?
-Stack ideas to build new layers of complexity.
-Prototype the best hybrid.
-Test. Learn. Repeat the loop.
+---
+Phase 10 – Continuous Improvement / Meta-Level
+59. Maintain decision log (merge/evolve/kill) with rationale and data.
+60. Conduct monthly small experiments to avoid planning inertia.
+61. Explicitly list and test riskiest assumptions first.
+62. Use metacognition checks weekly: assumptions, domain links, micro-experiments.
+63. Only schedule roadmap items that: Validate riskiest assumption, Improve unit economics, or Unlock strategic merger.`;
 
-The 'Genius' Layer: Advanced & Asymmetrical Thinking
-Anticipate the Next Problem.
-Find the 'Wow' Moment.
-Apply the Genius of Subtraction.
-Make the Product Invisible.
-Invent the Business Model.
-Design for a Specific Emotion.
-Find the Second-Order Effect.
-Ask: Is This a Product or a Platform?
-What is the Product's Story?
+    const initialAnalysesPrompt = analyses.map((a, i) => `
+**Product ${i + 1}: ${a.productName}**
+- Strengths: ${a.strengths.join(', ')}
+- Flaws: ${a.flaws.join(', ')}
+- Missed Opportunities: ${a.missedOpportunities.join(', ')}
+`).join('');
 
-[End of Framework]
+    const existingIdeasPrompt = existingIdeas && existingIdeas.length > 0 ? `
+**Existing Hybrid Ideas (to build upon):**
+${existingIdeas.map(idea => `
+**Idea: ${idea.ideaName}**
+- Concept: ${idea.whatItIs}
+- Reasoning: ${idea.reasoning}
+`).join('')}` : '';
+
+    const task = existingIdeas && existingIdeas.length > 0 
+        ? 'Your task is to perform a cumulative analysis on ALL of this information (the original products and the existing ideas) to generate 3 *new*, even more innovative product concepts.'
+        : `Based on the following in-depth analysis of ${analyses.length} products, generate the top 3 most innovative "Hybrid Product Ideas".`;
+
+    const prompt = `You are an expert product ideation strategist.
+${task}
+
+**Initial Product Analyses:**
+${initialAnalysesPrompt}
+${existingIdeasPrompt}
+
+---
+
+Before you create the ideas, you must rigorously and seriously follow the "11-phase Reverse-Engineering Genius Systematic Inventor Workflow" to guide your ideation process. Be extremely thorough.
+${workflow}
+
+[End of Workflow]
 
 IMPORTANT: Your response MUST be in two parts, separated by a line containing only '---JSON START---'.
-Part 1: Your 'Thinking Process'. This should be a detailed, step-by-step monologue explaining how you applied the 7-Category Invention Framework. Be explicit about which product flaws, strengths, and opportunities you are considering.
+
+Part 1: Your 'Thinking Process'.
+This should be a detailed, step-by-step monologue explaining how you applied the 11-phase workflow.
+**CRITICAL FORMATTING INSTRUCTIONS:**
+- Use markdown-style headers for structure.
+- Use '# ' for the main title (e.g., '# Ideation Session Start').
+- Use '## ' for each Phase (e.g., '## Phase 0 – Preparation & Mindset').
+- Use '### ' for sub-points or key concepts within a phase.
+- Use '- ' for bulleted list items.
+- Write regular text as paragraphs.
+- Do not use any other markdown like bold (**), italics (*), or code blocks (\`\`\`).
+
 Part 2: The final, valid JSON array of 3 objects as described below.
 
 The JSON object for each idea must have the following structure:
@@ -175,30 +243,31 @@ The JSON object for each idea must have the following structure:
         return { thinkingProcess, ideas };
 
     } catch (error) {
-        console.error("Failed to parse trio ideas response:", error, "Raw response:", response.text);
+        console.error("Failed to parse hybrid ideas response:", error, "Raw response:", response.text);
         throw new Error("Could not generate the hybrid ideas in the expected format. Please try again.");
     }
 }
 
 
-export async function generateBlueprint(idea: TrioIdea): Promise<Blueprint> {
-    const prompt = `Based on the following product idea, create a concise business blueprint.
+export async function generateBlueprint(idea: HybridIdea): Promise<Blueprint> {
+    const prompt = `Based on the following product idea, create a very detailed and comprehensive business blueprint.
 
 **Product Idea Name:** ${idea.ideaName}
 **Description:** ${idea.whatItIs}
 **Core Innovation:** ${idea.reasoning}
 
-Generate a blueprint with the following sections:
-- Key Features: A list of 3-5 core features that define the product's MVP (Minimum Viable Product).
-- Target Audience: A brief but specific description of the ideal customer for this product.
-- Monetization Strategy: A list of 2-3 potential ways this product could generate revenue.
+Generate a blueprint with the following sections. Be thorough and provide actionable details. The "DIY Guide" part should be especially detailed, as if explaining it to someone who wants to start building this tomorrow.
 
-Provide your response as a single, valid JSON object, without any surrounding text or markdown formatting. The JSON object must have the following structure:
-{
-  "keyFeatures": ["Array of strings"],
-  "targetAudience": "A single string",
-  "monetizationStrategy": ["Array of strings"]
-}`;
+- **Value Proposition**: A single, powerful sentence explaining the unique value this product brings to its users.
+- **Key Features**: A list of 5-7 core features that define the product's MVP (Minimum Viable Product).
+- **Target Audience**: A specific, detailed description of the ideal customer profile, including demographics, needs, and pain points.
+- **User Journey**: A brief narrative describing a user's experience from discovering the product to becoming a loyal customer.
+- **Tech Stack**: Recommended technologies (languages, frameworks, platforms, APIs) to build this product.
+- **Monetization Strategy**: A list of 3-5 potential ways this product could generate revenue, with a brief pro/con for each.
+- **Go-To-Market Plan**: A list of 3-5 actionable strategies to launch the product and acquire the first 1,000 users.
+- **DIY Guide**: A step-by-step guide for a solo founder or small team to start building this product. This should be an array of objects, where each object represents a clear, actionable step.
+
+Provide your response as a single, valid JSON object, without any surrounding text or markdown formatting. The JSON object must match the structure defined in the response schema.`;
 
     const response = await ai.models.generateContent({
         model: "gemini-2.5-pro",
@@ -208,11 +277,28 @@ Provide your response as a single, valid JSON object, without any surrounding te
             responseSchema: {
                 type: Type.OBJECT,
                 properties: {
+                    valueProposition: { type: Type.STRING },
                     keyFeatures: { type: Type.ARRAY, items: { type: Type.STRING } },
                     targetAudience: { type: Type.STRING },
+                    userJourney: { type: Type.STRING },
+                    techStack: { type: Type.ARRAY, items: { type: Type.STRING } },
                     monetizationStrategy: { type: Type.ARRAY, items: { type: Type.STRING } },
+                    goToMarketPlan: { type: Type.ARRAY, items: { type: Type.STRING } },
+                    diyGuide: {
+                        type: Type.ARRAY,
+                        items: {
+                            type: Type.OBJECT,
+                            properties: {
+                                step: { type: Type.INTEGER },
+                                title: { type: Type.STRING },
+                                description: { type: Type.STRING },
+                                actionableItems: { type: Type.ARRAY, items: { type: Type.STRING } }
+                            },
+                            required: ["step", "title", "description", "actionableItems"]
+                        }
+                    }
                 },
-                required: ["keyFeatures", "targetAudience", "monetizationStrategy"]
+                required: ["valueProposition", "keyFeatures", "targetAudience", "userJourney", "techStack", "monetizationStrategy", "goToMarketPlan", "diyGuide"]
             }
         }
     });
@@ -223,132 +309,5 @@ Provide your response as a single, valid JSON object, without any surrounding te
     } catch (error) {
         console.error("Failed to parse blueprint JSON:", error, "Raw response:", response.text);
         throw new Error("Could not generate the blueprint in the expected format. Please try again.");
-    }
-}
-
-export async function generateMoreIdeas(
-    analyses: AnalysisResult[], 
-    existingIdeas: TrioIdea[]
-): Promise<IdeaGenerationResult> {
-    const prompt = `You are an expert product ideation strategist. You will be given an analysis of 3 initial products and a list of hybrid ideas already generated from them. Your task is to perform a cumulative analysis on ALL of this information (the original products and the existing ideas) to generate 3 *new*, even more innovative product concepts.
-
-**Initial Product Analyses:**
-${analyses.map(a => `
-**Product: ${a.productName}**
-- Strengths: ${a.strengths.join(', ')}
-- Flaws: ${a.flaws.join(', ')}
-`).join('')}
-
-**Existing Hybrid Ideas:**
-${existingIdeas.map(idea => `
-**Idea: ${idea.ideaName}**
-- Concept: ${idea.whatItIs}
-- Reasoning: ${idea.reasoning}
-`).join('')}
-
----
-
-To generate these new ideas, you must use the following thinking framework to guide your ideation process, paying special attention to the 'Iterative Generation Loop' and 'Genius Layer' since you are building on existing concepts:
-
-[The 7-Category Invention Framework]
-
-- Foundational Mindset
-Ask "Why?" and "What if?"
-Be insatiably curious.
-Find the friction and the unspoken need.
-Observe how people really behaved and said/wrote/reviewed about the product.
-Break the problem down to its first principles.
-Connect the unconnected.
-Treat failure as data.
-
-- Flaw, Con, & Gap Analysis
-Focus on the flaws: What are the biggest cons and user annoyances?
-Build the "anti-product": What new product exists only to solve P1's biggest con?
-Identify the single biggest shared flaw across all products.
-Generate a "fix" for this significant gap.
-Can a strength from Product 1 be used to solve a flaw in Product 2?
-Turn a flaw into a feature: Can that "con" be repositioned as a "pro" in a new context?
-What's the easiest user annoyance to solve right now?
-
-- Hybrid & Feature Combination
-Combine the core function of P1 and P2.
-Build a "Best Parts" product (P1's top feature + P2's + P3's).
-What if P1's sensor meets P3's algorithm?
-Create the "1 + 1 = 3" hybrid
-
-- Market & Context Shift
-Who is the opposite of the current user?
-Design for this new, unmet audience.
-Shift the context: from "leisure" to "productivity"? Or "home" to "industrial"?
-Unbundle: Can one popular feature become its own cheap, standalone product?
-
-- Ecosystem & Enhancement
-What single product enhances P1, P2, and P3 simultaneously?
-Design an accessory, a universal adapter, or a software dashboard.
-
-- Iterative Generation Loop
-Generate the first batch (Ideas 1, 2, 3).
-Generate the next batch.
-Treat all prior ideas as new ingredients.
-Feed all outputs back in as new inputs.
-Analyze the entire pool (Originals + Ideas 1-6).
-Combine the combinations.
-Cross-pollinate: What if Idea 2 and Idea 5 merge?
-Stack ideas to build new layers of complexity.
-Prototype the best hybrid.
-Test. Learn. Repeat the loop.
-
-The 'Genius' Layer: Advanced & Asymmetrical Thinking
-Anticipate the Next Problem.
-Find the 'Wow' Moment.
-Apply the Genius of Subtraction.
-Make the Product Invisible.
-Invent the Business Model.
-Design for a Specific Emotion.
-Find the Second-Order Effect.
-Ask: Is This a Product or a Platform?
-What is the Product's Story?
-
-[End of Framework]
-
-IMPORTANT: Your response MUST be in two parts, separated by a line containing only '---JSON START---'.
-Part 1: Your 'Thinking Process'. This should be a detailed, step-by-step monologue explaining how you applied the 7-Category Invention Framework by synthesizing information from the original products and previously generated ideas.
-Part 2: The final, valid JSON array of 3 objects as described below.
-
-The JSON object for each idea must have the following structure:
-{
-  "ideaName": "A creative and catchy name for the new hybrid product.",
-  "whatItIs": "A clear, concise explanation of what the new product is and its primary function.",
-  "reasoning": "A detailed explanation of how you came up with this idea by synthesizing information from the original products and previously generated ideas.",
-  "whyBetter": "A justification for why this new product is a significant step forward. Explain what new problems it solves or what unique value it offers compared to everything analyzed so far."
-}`;
-    
-    const response = await ai.models.generateContent({
-        model: "gemini-2.5-pro",
-        contents: prompt,
-    });
-
-    try {
-        const responseText = response.text;
-        const separator = '---JSON START---';
-        const parts = responseText.split(separator);
-
-        if (parts.length < 2) {
-             console.warn("AI response did not contain the expected separator. Parsing entire response for JSON.");
-             const ideas = JSON.parse(extractJson(responseText));
-             return {
-                 thinkingProcess: "The AI did not provide a thinking process in the expected format. The creative process is reflected in the generated ideas.",
-                 ideas: ideas,
-             };
-        }
-
-        const thinkingProcess = parts[0].trim();
-        const jsonPart = parts[1];
-        const ideas = JSON.parse(extractJson(jsonPart));
-        
-        return { thinkingProcess, ideas };
-    } catch (error) {
-        console.error("Failed to parse more ideas response:", error, "Raw response:", response.text);
-        throw new Error("Could not generate more ideas in the expected format. Please try again.");
     }
 }

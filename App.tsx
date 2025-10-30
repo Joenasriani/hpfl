@@ -1,8 +1,6 @@
-
-
 import React, { useState, useCallback, useMemo } from 'react';
-import { analyzeProduct, generateTrioHybridIdeas, generateBlueprint, generateMoreIdeas } from './services/geminiService';
-import { AppStep, AnalysisResult, TrioIdea, Blueprint } from './types';
+import { analyzeProduct, generateHybridIdeas, generateBlueprint } from './services/geminiService';
+import { AppStep, AnalysisResult, HybridIdea, Blueprint, DIYStep } from './types';
 
 const loadingMessages = [
     "Performing deep analysis on products...",
@@ -71,13 +69,11 @@ const ChevronIcon: React.FC<{ isOpen: boolean }> = ({ isOpen }) => (
 
 
 const App: React.FC = () => {
-    const [product1, setProduct1] = useState('');
-    const [product2, setProduct2] = useState('');
-    const [product3, setProduct3] = useState('');
+    const [products, setProducts] = useState<string[]>(['', '']);
     const [analyses, setAnalyses] = useState<AnalysisResult[] | null>(null);
-    const [allIdeas, setAllIdeas] = useState<TrioIdea[] | null>(null);
+    const [allIdeas, setAllIdeas] = useState<HybridIdea[] | null>(null);
     const [thinkingProcess, setThinkingProcess] = useState<string | null>(null);
-    const [selectedIdea, setSelectedIdea] = useState<TrioIdea | null>(null);
+    const [selectedIdea, setSelectedIdea] = useState<HybridIdea | null>(null);
     const [blueprint, setBlueprint] = useState<Blueprint | null>(null);
     const [step, setStep] = useState<AppStep>(AppStep.INITIAL);
     const [error, setError] = useState<string | null>(null);
@@ -101,36 +97,56 @@ const App: React.FC = () => {
         }
     }, [step]);
 
+    const handleAddProduct = () => {
+        if (products.length < 5) {
+            setProducts([...products, '']);
+        }
+    };
+
+    const handleRemoveProduct = (index: number) => {
+        if (products.length > 2) {
+            const newProducts = [...products];
+            newProducts.splice(index, 1);
+            setProducts(newProducts);
+        }
+    };
+    
+    const handleProductChange = (index: number, value: string) => {
+        const newProducts = [...products];
+        newProducts[index] = value;
+        setProducts(newProducts);
+    };
+
     const handleAnalyzeProducts = useCallback(async () => {
-        if (!product1 || !product2 || !product3) {
-            setError('Please enter all three product names.');
+        const validProducts = products.map(p => p.trim()).filter(p => p);
+        if (validProducts.length < 2) {
+            setError('Please enter at least two product names.');
             return;
         }
         setError(null);
         setStep(AppStep.ANALYZING);
         try {
-            const [res1, res2, res3] = await Promise.all([
-                analyzeProduct(product1),
-                analyzeProduct(product2),
-                analyzeProduct(product3),
-            ]);
-            setAnalyses([res1, res2, res3]);
+            const results = await Promise.all(
+                validProducts.map(p => analyzeProduct(p))
+            );
+            setAnalyses(results);
             setOpenAnalyses(new Set()); // Start with all analysis cards closed
             setStep(AppStep.ANALYZED);
         } catch (err) {
             setError(err instanceof Error ? err.message : 'An unknown error occurred during analysis.');
             setStep(AppStep.INITIAL);
         }
-    }, [product1, product2, product3]);
+    }, [products]);
 
     const handleGenerateIdeas = useCallback(async () => {
-        if (!analyses || analyses.length < 3) return;
+        if (!analyses || analyses.length < 2) return;
         setError(null);
         setStep(AppStep.GENERATING_IDEAS);
         try {
-            const { ideas, thinkingProcess } = await generateTrioHybridIdeas(analyses[0], analyses[1], analyses[2]);
+            const { ideas, thinkingProcess } = await generateHybridIdeas(analyses);
             setAllIdeas(ideas);
             setThinkingProcess(thinkingProcess);
+            setOpenIdeas(new Set()); // Start with all idea cards closed
             setStep(AppStep.IDEAS_GENERATED);
         } catch (err) {
             setError(err instanceof Error ? err.message : 'An unknown error occurred while generating ideas.');
@@ -159,7 +175,7 @@ const App: React.FC = () => {
         const previousStep = step;
         setStep(AppStep.GENERATING_IDEAS); // Reuse for loading state
         try {
-            const { ideas, thinkingProcess } = await generateMoreIdeas(analyses, allIdeas);
+            const { ideas, thinkingProcess } = await generateHybridIdeas(analyses, allIdeas);
             setAllIdeas(prev => [...(prev || []), ...ideas]);
             setThinkingProcess(thinkingProcess);
             setStep(previousStep);
@@ -169,7 +185,7 @@ const App: React.FC = () => {
         }
     }, [analyses, allIdeas, step]);
     
-    const handleSelectIdea = (idea: TrioIdea) => {
+    const handleSelectIdea = (idea: HybridIdea) => {
         setSelectedIdea(idea);
         if (blueprint) {
             setBlueprint(null);
@@ -202,9 +218,7 @@ const App: React.FC = () => {
     };
     
     const handleStartOver = () => {
-        setProduct1('');
-        setProduct2('');
-        setProduct3('');
+        setProducts(['', '']);
         setAnalyses(null);
         setAllIdeas(null);
         setThinkingProcess(null);
@@ -231,11 +245,8 @@ const App: React.FC = () => {
 ***What It Is:***
 ${selectedIdea.whatItIs}
 
-***Creative Reasoning:***
-${selectedIdea.reasoning}
-
-***Why It's Better:***
-${selectedIdea.whyBetter}
+***Value Proposition:***
+${blueprint.valueProposition}
 
 ---
 
@@ -266,23 +277,59 @@ ${blueprint.targetAudience}
         <div className="min-h-screen text-gray-200 flex flex-col items-center p-4 sm:p-6 lg:p-8 font-['Inter',_sans-serif]">
             <div className="w-full max-w-7xl mx-auto">
                 <header className="text-center my-8 md:my-12">
-                    <h1 className="text-4xl sm:text-5xl md:text-6xl font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-purple-500">
-                        Hybrid Product Fusion Lab
+                    <h1 className="text-4xl sm:text-5xl md:text-6xl font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-purple-500 leading-tight">
+                        <span className="block">The 11-Phase</span>
+                        <span className="block text-5xl sm:text-6xl md:text-7xl">Hybrid Product</span>
+                        <span className="block">Fusion Lab</span>
                     </h1>
-                     <p className="mt-3 text-base sm:text-lg text-gray-400 max-w-2xl mx-auto">Hybridize products to spark innovation and create your next big idea.</p>
+                     <p className="mt-4 text-base sm:text-lg text-gray-400 max-w-2xl mx-auto">Hybridize products to spark innovation and create your next big idea.</p>
                 </header>
                 
                 <main className="space-y-12">
                     {step === AppStep.INITIAL && (
-                        <section className="bg-slate-900/70 backdrop-blur-xl p-6 sm:p-8 rounded-2xl shadow-2xl space-y-20 animate-fade-in border border-slate-700">
-                             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                <ProductInput id="product1" label="Product 1" value={product1} onChange={(e) => setProduct1(e.target.value)} placeholder="e.g., Drone" />
-                                <ProductInput id="product2" label="Product 2" value={product2} onChange={(e) => setProduct2(e.target.value)} placeholder="e.g., Robotic Vacuum" />
-                                <ProductInput id="product3" label="Product 3" value={product3} onChange={(e) => setProduct3(e.target.value)} placeholder="e.g., Smart Speaker" />
+                        <section className="bg-slate-900/70 backdrop-blur-xl p-6 sm:p-8 rounded-2xl shadow-2xl space-y-6 animate-fade-in border border-slate-700">
+                            <div className="space-y-6">
+                                {products.map((product, index) => (
+                                    <div key={index} className="flex items-end gap-3">
+                                        <div className="flex-grow">
+                                            <ProductInput 
+                                                id={`product${index + 1}`} 
+                                                label={`Product ${index + 1}`} 
+                                                value={product} 
+                                                onChange={(e) => handleProductChange(index, e.target.value)} 
+                                                placeholder={index === 0 ? "e.g., Drone" : index === 1 ? "e.g., Robotic Vacuum" : "e.g., Another Product"} 
+                                            />
+                                        </div>
+                                        {products.length > 2 && (
+                                            <button 
+                                                onClick={() => handleRemoveProduct(index)} 
+                                                className="h-12 w-12 flex-shrink-0 bg-red-900/50 hover:bg-red-800/70 text-red-300 font-bold text-2xl rounded-lg transition-colors duration-300 flex items-center justify-center"
+                                                aria-label={`Remove Product ${index + 1}`}
+                                            >
+                                                ➖
+                                            </button>
+                                        )}
+                                    </div>
+                                ))}
                             </div>
-                           <PrimaryButton onClick={handleAnalyzeProducts} disabled={isLoading || !product1 || !product2 || !product3}>
+                            
+                            {products.length < 5 && (
+                                <div className="flex justify-center pt-2">
+                                    <button 
+                                        onClick={handleAddProduct}
+                                        className="h-12 w-12 bg-cyan-900/50 hover:bg-cyan-800/70 text-cyan-300 font-bold text-2xl rounded-full transition-all duration-300 flex items-center justify-center transform hover:scale-110"
+                                        aria-label="Add Product"
+                                    >
+                                        ➕
+                                    </button>
+                                </div>
+                            )}
+                           
+                           <div className="pt-12">
+                             <PrimaryButton onClick={handleAnalyzeProducts} disabled={isLoading || products.filter(p => p.trim()).length < 2}>
                                 Analyze Products
                             </PrimaryButton>
+                           </div>
                         </section>
                     )}
 
@@ -327,7 +374,7 @@ ${blueprint.targetAudience}
                             
                             <div className="space-y-8">
                                 {allIdeas.map((idea, index) => (
-                                     <TrioIdeaCard 
+                                     <HybridIdeaCard 
                                         key={index} 
                                         idea={idea} 
                                         index={index}
@@ -391,8 +438,52 @@ ${blueprint.targetAudience}
     );
 };
 
+const FormattedThinkingProcess: React.FC<{ text: string }> = ({ text }) => {
+    const lines = text.split('\n');
+    // FIX: Replaced `JSX.Element` with `React.ReactElement` to resolve "Cannot find namespace 'JSX'" error.
+    const elements: React.ReactElement[] = [];
+    let listItems: string[] = [];
+
+    const flushList = () => {
+        if (listItems.length > 0) {
+            elements.push(
+                <ul key={`ul-${elements.length}`} className="list-disc list-inside space-y-2 pl-4 mb-4 text-gray-300">
+                    {listItems.map((item, index) => (
+                        <li key={index}>{item}</li>
+                    ))}
+                </ul>
+            );
+            listItems = [];
+        }
+    };
+
+    lines.forEach((line, index) => {
+        const trimmedLine = line.trim();
+
+        if (trimmedLine.startsWith('### ')) {
+            flushList();
+            elements.push(<h3 key={index} className="text-lg font-semibold text-cyan-300 mt-4 mb-2">{trimmedLine.substring(4)}</h3>);
+        } else if (trimmedLine.startsWith('## ')) {
+            flushList();
+            elements.push(<h2 key={index} className="text-xl font-bold text-yellow-300 mt-6 mb-3 border-b border-yellow-700/50 pb-2">{trimmedLine.substring(3)}</h2>);
+        } else if (trimmedLine.startsWith('# ')) {
+            flushList();
+            elements.push(<h1 key={index} className="text-2xl font-black text-yellow-200 mt-8 mb-4">{trimmedLine.substring(2)}</h1>);
+        } else if (trimmedLine.startsWith('- ')) {
+            listItems.push(trimmedLine.substring(2));
+        } else if (trimmedLine) {
+            flushList();
+            elements.push(<p key={index} className="text-gray-400 mb-3 leading-relaxed">{trimmedLine}</p>);
+        }
+    });
+
+    flushList(); // Add any remaining list items at the end
+
+    return <div className="font-sans text-base leading-relaxed">{elements}</div>;
+};
+
 const ThinkingMonitorCard: React.FC<{ thinkingProcess: string }> = ({ thinkingProcess }) => {
-    const [isOpen, setIsOpen] = useState(true);
+    const [isOpen, setIsOpen] = useState(false);
 
     return (
         <div className="bg-slate-950/80 backdrop-blur-xl rounded-2xl shadow-lg border border-yellow-500/50 animate-fade-in">
@@ -408,46 +499,44 @@ const ThinkingMonitorCard: React.FC<{ thinkingProcess: string }> = ({ thinkingPr
                 <ChevronIcon isOpen={isOpen} />
             </button>
             <div className={`collapsible-content ${isOpen ? 'open' : ''}`}>
-                <div className="px-6 pb-6 pt-2 border-t border-yellow-500/50">
-                    <pre className="text-gray-300 whitespace-pre-wrap font-mono text-sm leading-relaxed">
-                        {thinkingProcess}
-                    </pre>
+                <div className="px-6 pb-6 pt-4 border-t border-yellow-500/50">
+                   <FormattedThinkingProcess text={thinkingProcess} />
                 </div>
             </div>
         </div>
     );
 };
 
-const TrioIdeaCard: React.FC<{ idea: TrioIdea, index: number, isSelected: boolean, onSelect: () => void, isOpen: boolean, onToggle: () => void }> = ({ idea, index, isSelected, onSelect, isOpen, onToggle }) => {
+const HybridIdeaCard: React.FC<{ idea: HybridIdea, index: number, isSelected: boolean, onSelect: () => void, isOpen: boolean, onToggle: () => void }> = ({ idea, index, isSelected, onSelect, isOpen, onToggle }) => {
     const baseClasses = "bg-slate-900/70 backdrop-blur-xl rounded-2xl shadow-lg border-2 transition-all duration-300 group animate-slide-in";
     const selectedClasses = isSelected 
         ? 'border-purple-500 ring-4 ring-purple-500/40 scale-[1.03] shadow-2xl shadow-purple-500/20' 
         : 'border-slate-700 hover:border-purple-500 hover:-translate-y-1.5';
 
-    const handleHeaderClick = () => {
+    const handleHeaderClick = (e: React.MouseEvent<HTMLButtonElement>) => {
         onSelect();
-        onToggle();
+        // Allow selection without toggling if already open
+        if (!isOpen) {
+          onToggle();
+        }
     };
-
+    
     return (
         <div
             className={`${baseClasses} ${selectedClasses}`}
             style={{ animationDelay: `${index * 150}ms`}}
         >
-            <button
-                className="w-full p-6 sm:p-8 text-left flex justify-between items-center"
-                onClick={handleHeaderClick}
-                aria-pressed={isSelected}
-                aria-expanded={isOpen}
-            >
+            <div className="w-full p-6 sm:p-8 text-left flex justify-between items-center cursor-pointer" onClick={onSelect}>
                 <div>
                     <h3 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-purple-400 transition-all group-hover:from-cyan-300 group-hover:to-purple-300">{idea.ideaName}</h3>
                     <div className="mt-2">
                         <span className="bg-purple-500/20 text-purple-300 text-sm font-bold px-3 py-1 rounded-full">Idea #{index + 1}</span>
                     </div>
                 </div>
-                <ChevronIcon isOpen={isOpen} />
-            </button>
+                <button onClick={(e) => { e.stopPropagation(); onToggle(); }} aria-label={isOpen ? "Collapse idea details" : "Expand idea details"} className="p-2 -mr-2 rounded-full hover:bg-slate-700/50">
+                    <ChevronIcon isOpen={isOpen} />
+                </button>
+            </div>
             <div className={`collapsible-content ${isOpen ? 'open' : ''} ${isOpen ? 'border-t border-slate-700' : ''}`}>
                 <div className="px-6 sm:px-8 pb-6 sm:pb-8 pt-8 space-y-6">
                     <IdeaDetail title="What It Is" content={idea.whatItIs} />
@@ -518,7 +607,7 @@ const AnalysisCard: React.FC<{ analysis: AnalysisResult, index: number, isOpen: 
 
 const BlueprintDetail: React.FC<{title: React.ReactNode; items: string[] | string;}> = ({ title, items }) => (
     <div>
-        <h3 className="text-xl font-semibold mb-3 border-b-2 border-slate-700 pb-3 flex items-center gap-3">
+        <h3 className="text-xl font-semibold mb-3 border-b-2 border-slate-700 pb-3 flex items-center gap-3 text-green-400">
             {title}
         </h3>
         {Array.isArray(items) ? (
@@ -540,19 +629,36 @@ const BlueprintCard: React.FC<{ blueprint: Blueprint, ideaName: string, isOpen: 
                  <ChevronIcon isOpen={isOpen} />
             </button>
             <div className={`collapsible-content ${isOpen ? 'open' : ''} ${isOpen ? 'border-t border-slate-700' : ''}`}>
-                <div className="px-6 sm:px-8 pb-6 sm:pb-8 pt-8 space-y-8">
-                    <BlueprintDetail 
-                        title={<><svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M12 6V4m0 16v-2M8 12a4 4 0 118 0 4 4 0 01-8 0z" /></svg><span className="text-green-400">Key Features (MVP)</span></>} 
-                        items={blueprint.keyFeatures} 
-                    />
-                    <BlueprintDetail 
-                        title={<><svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg><span className="text-green-400">Target Audience</span></>} 
-                        items={blueprint.targetAudience} 
-                    />
-                    <BlueprintDetail 
-                        title={<><svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v.01M12 6v-1m0-1V4m0 2.01M12 18v-1m0-1v-1m0-1V4.01M12 6.01V4m0 14V12m0 0v6m0-6H6m6 0h6" /></svg><span className="text-green-400">Monetization Strategy</span></>} 
-                        items={blueprint.monetizationStrategy} 
-                    />
+                <div className="px-6 sm:px-8 pb-6 sm:pb-8 pt-8 grid grid-cols-1 lg:grid-cols-2 gap-x-12 gap-y-10">
+                    <div className="lg:col-span-2">
+                        <BlueprintDetail title="🎯 Value Proposition" items={blueprint.valueProposition} />
+                    </div>
+                    <BlueprintDetail title="✨ Key Features (MVP)" items={blueprint.keyFeatures} />
+                    <BlueprintDetail title="👥 Target Audience" items={blueprint.targetAudience} />
+                    <div className="lg:col-span-2">
+                         <BlueprintDetail title="🗺️ User Journey" items={blueprint.userJourney} />
+                    </div>
+                    <BlueprintDetail title="💻 Tech Stack" items={blueprint.techStack} />
+                    <BlueprintDetail title="💰 Monetization Strategy" items={blueprint.monetizationStrategy} />
+                    <div className="lg:col-span-2">
+                        <BlueprintDetail title="🚀 Go-To-Market Plan" items={blueprint.goToMarketPlan} />
+                    </div>
+                    <div className="lg:col-span-2 mt-4">
+                        <h3 className="text-2xl font-bold mb-4 border-b-2 border-slate-700 pb-3 flex items-center gap-3 text-green-400">
+                           🛠️ DIY Step-by-Step Guide
+                        </h3>
+                        <div className="space-y-6">
+                            {blueprint.diyGuide.map((step) => (
+                                <div key={step.step} className="p-5 bg-slate-800/50 rounded-lg border border-slate-700">
+                                    <h4 className="font-bold text-lg text-cyan-300">Step {step.step}: {step.title}</h4>
+                                    <p className="mt-2 text-gray-400 text-base">{step.description}</p>
+                                    <ul className="list-disc list-inside mt-4 space-y-1.5 text-gray-300 pl-2">
+                                        {step.actionableItems.map((item, i) => <li key={i}>{item}</li>)}
+                                    </ul>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -587,15 +693,30 @@ body {
     animation: slide-in 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
 }
 .collapsible-content {
-    display: grid;
-    grid-template-rows: 0fr;
-    transition: grid-template-rows 0.4s ease-in-out;
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.5s cubic-bezier(0.4, 0, 0.2, 1);
 }
 .collapsible-content.open {
-    grid-template-rows: 1fr;
+    max-height: 80vh; /* Accommodate content, but prevent huge layouts */
+    overflow-y: auto;   /* Enable scrolling for long content */
+    transition: max-height 0.7s cubic-bezier(0.4, 0, 0.2, 1);
 }
-.collapsible-content > div {
-    overflow: hidden;
+/* Custom scrollbar for webkit browsers */
+.collapsible-content.open::-webkit-scrollbar {
+    width: 8px;
+}
+.collapsible-content.open::-webkit-scrollbar-track {
+    background: transparent;
+}
+.collapsible-content.open::-webkit-scrollbar-thumb {
+    background-color: #334155; /* slate-700 */
+    border-radius: 10px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+}
+.collapsible-content.open::-webkit-scrollbar-thumb:hover {
+    background-color: #475569; /* slate-600 */
 }
 `;
 document.head.appendChild(style);
