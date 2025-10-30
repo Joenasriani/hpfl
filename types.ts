@@ -1,5 +1,7 @@
 export interface AnalysisResult {
   productName: string;
+  introduction: string;
+  manufacturingOrigin: string;
   strengths: string[];
   flaws: string[];
   humanImpact: string;

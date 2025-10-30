@@ -28,6 +28,8 @@ export async function analyzeProduct(productName: string): Promise<AnalysisResul
 
 Provide your response as a single, valid JSON object, without any surrounding text or markdown formatting. The JSON object should have the following structure:
 {
+  "introduction": "A string (2-3 sentences) describing what the product was designed to do.",
+  "manufacturingOrigin": "A string identifying the country or company where the product was primarily designed and manufactured.",
   "strengths": ["An array of 5 strings, listing the most-praised key features."],
   "flaws": ["An array of 5 strings, listing the most common user complaints or limitations."],
   "humanImpact": "A string (2-3 sentences) describing what this product helped humans with.",
@@ -267,6 +269,14 @@ Generate a blueprint with the following sections. Be thorough and provide action
 - **Go-To-Market Plan**: A list of 3-5 actionable strategies to launch the product and acquire the first 1,000 users.
 - **DIY Guide**: A step-by-step guide for a solo founder or small team to start building this product. This should be an array of objects, where each object represents a clear, actionable step.
 
+**IMPORTANT NOTE ON VISUALS:**
+If you mention or describe any flowcharts or design diagrams (e.g., in the User Journey or DIY Guide), you must adhere to the following professional design principles. The blueprint should reflect these standards:
+- **Clarity First**: Include flowcharts and design diagrams only where visual explanation adds significant clarity.
+- **No Auto-Generation**: State clearly that visual assets must be created professionally or with dedicated design tools, not generated as text or code.
+- **Layout Principles**: Ensure no arrows, shapes, or text overlap. Text must be neatly centered inside shapes with small, legible fonts and must never touch or cross shape borders or connecting lines. Maintain consistent spacing between all elements.
+- **Standardization**: Use standard flowchart symbols and arrange flow logically (top-to-bottom or left-to-right).
+- **Simplicity**: Keep diagrams clean and uncluttered for easy comprehension.
+
 Provide your response as a single, valid JSON object, without any surrounding text or markdown formatting. The JSON object must match the structure defined in the response schema.`;
 
     const response = await ai.models.generateContent({
@@ -310,4 +320,31 @@ Provide your response as a single, valid JSON object, without any surrounding te
         console.error("Failed to parse blueprint JSON:", error, "Raw response:", response.text);
         throw new Error("Could not generate the blueprint in the expected format. Please try again.");
     }
+}
+
+export async function paraphraseText(textToParaphrase: string): Promise<string> {
+    if (!textToParaphrase.trim()) {
+        return textToParaphrase;
+    }
+    const prompt = `Please rephrase and rewrite the following text. Your goal is to alter the sentence structure, vocabulary, and overall phrasing to make it sound unique, as if written by a different author, while preserving the original meaning, information, and core concepts.
+
+**Crucially, you MUST maintain the exact same markdown formatting:**
+- Lines starting with '# ' must remain as h1 headers.
+- Lines starting with '## ' must remain as h2 headers.
+- Lines starting with '### ' must remain as h3 headers.
+- Lines starting with '- ' must remain as bullet points.
+- Paragraphs should remain as paragraphs.
+- Do not add any new markdown like bold or italics.
+- Do not add any introductory or concluding text like "Here is the paraphrased text:". Just return the rewritten text directly.
+
+Here is the text to rewrite:
+---
+${textToParaphrase}`;
+
+    const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: prompt,
+    });
+
+    return response.text.trim();
 }
