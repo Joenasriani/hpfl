@@ -281,32 +281,31 @@ const App: React.FC = () => {
             return;
         }
 
-        const shareText = `
-🚀 **Product Idea: ${selectedIdea.ideaName}**
+        const shareText = `PRODUCT PROPOSAL: ${selectedIdea.ideaName}
 
-***What It Is:***
-${selectedIdea.whatItIs}
-
-***Value Proposition:***
+ABSTRACT
 ${blueprint.valueProposition}
 
----
+1. INTRODUCTION
 
-**📋 Blueprint 📋**
+1.1. Concept
+${selectedIdea.whatItIs}
 
-***Key Features (MVP):***
-• ${blueprint.keyFeatures.join('\n• ')}
-
-***Target Audience:***
+1.2. Target Audience
 ${blueprint.targetAudience}
 
-***Monetization Strategy:***
-• ${blueprint.monetizationStrategy.join('\n• ')}
+2. PRODUCT BLUEPRINT
+
+2.1. Key Features (Minimum Viable Product)
+${blueprint.keyFeatures.map((item, index) => `${index + 1}. ${item}`).join('\n')}
+
+2.2. Monetization Strategy
+${blueprint.monetizationStrategy.map((item, index) => `${index + 1}. ${item}`).join('\n')}
         `.trim().replace(/^\s+/gm, '');
 
         try {
             await navigator.share({
-                title: `Product Idea & Blueprint: ${selectedIdea.ideaName}`,
+                title: `Product Proposal: ${selectedIdea.ideaName}`,
                 text: shareText,
             });
         } catch (err) {
@@ -362,7 +361,7 @@ ${blueprint.targetAudience}
                             </div>
                             
                             {products.length < 5 && (
-                                <div className="flex justify-center pt-2">
+                                <div className="flex justify-center">
                                     <button
                                         onClick={handleAddProduct}
                                         className="h-12 w-12 bg-slate-700 hover:bg-gradient-to-r hover:from-[#6594f3] hover:to-[#7089f3] text-white font-normal text-4xl rounded-full transition-all duration-300 flex items-center justify-center transform hover:scale-110 disabled:bg-slate-700 disabled:cursor-not-allowed disabled:transform-none"
@@ -374,7 +373,7 @@ ${blueprint.targetAudience}
                                 </div>
                             )}
                            
-                           <div className="pt-12">
+                           <div>
                              <PrimaryButton onClick={handleAnalyzeProducts} disabled={isLoading || products.filter(p => p.trim()).length < 2}>
                                 Analyze Products
                             </PrimaryButton>

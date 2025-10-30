@@ -18,25 +18,129 @@ function extractJson(text: string): string {
 }
 
 
-// FIX: Per @google/genai guidelines, `responseMimeType` and `responseSchema` are not allowed when using the `googleSearch` tool.
-// The config has been updated accordingly, and the prompt now includes the desired JSON structure to guide the model.
 export async function analyzeProduct(productName: string): Promise<AnalysisResult> {
     if (!productName.trim()) {
         throw new Error("Product name cannot be empty.");
     }
-    const prompt = `Using Google Search, conduct a deep analysis of the product "${productName}".
+    const prompt = `Analyze the product "${productName}" using the Inventor-Analysis Instruction Protocol (V2.0) and the Genius Inventor Cognitive Expansion Layer (Section 16) exactly as defined below.
 
-Provide your response as a single, valid JSON object, without any surrounding text or markdown formatting. The JSON object should have the following structure:
+Your goal in this phase is not to generate new product ideas yet, but to conduct a deep, structured, and comparative analytical breakdown of the input product.
+Keep in mind throughout that this analysis will serve as the foundation for later creative synthesis in a separate stage.
+
+──────────────────────────
+Execution Rules
+
+1. Input Range:
+   Analyze the single product provided: "${productName}". Treat it as an independent analytical object.
+
+2. Purpose Reminder:
+   This entire analysis aims to extract every possible insight, flaw, pattern, and principle from the existing product so that they can later be recombined into new inventions.
+   Do not jump to ideation. Focus purely on structured understanding, decomposition, and comparison.
+
+3. Follow This Full Reasoning Flow:
+
+   Section 1 – Product Overview
+   Identify:
+   • Product name and category
+   • Inventor or originating organization
+   • Year of invention or release
+   • Geographic/market context
+
+   Section 2 – Purpose and Core Function
+   Define:
+   • Primary function or role
+   • The user problem it solves
+   • Key technological principle
+
+   Section 3 – Design Structure and Components
+   Break down architecture and layers:
+   • Physical (materials, mechanics)
+   • Digital (software, sensors, data systems)
+   • Experiential (UI, interaction, ergonomics)
+
+   Section 4 – Mechanism and Working Logic
+   Explain how it works from input → process → output → feedback.
+   Map internal dependencies and system flow.
+
+   Section 5 – Innovation Highlights
+   Document unique design choices, patents, or breakthroughs that distinguish it.
+
+   Section 6 – Flaws, Limitations, and Gaps
+   Identify weak points, usability issues, design compromises, inefficiencies, or maintenance problems.
+
+   Section 7 – User Experience and Behavioral Insights
+   Analyze emotional, cognitive, and ergonomic interaction.
+   Note how real-world users behave vs. intended use.
+
+   Section 8 – Market and Adoption Context
+   Summarize:
+   • Target users
+   • Market positioning and adoption timeline
+   • Cultural or symbolic value
+   • Competing alternatives
+
+   Section 10 – Extracted Design Principles
+   Abstract design heuristics, engineering patterns, and UX insights.
+   Distinguish between transferable principles and product-specific quirks.
+
+   Section 11 – Contextual and External Constraints
+   Analyze supply chain, regulatory, environmental, and ethical considerations that influenced design.
+
+   Section 12 – Historical and Developmental Background
+   Trace origin stories, prototype evolutions, and design pivots.
+
+   Section 13 – Cognitive Divergence Phase
+   Apply higher-order reasoning without ideating:
+   • Ask “why was it made this way?” repeatedly
+   • Identify contradictions and trade-offs
+   • Note where assumptions limit innovation
+   • Record potential inversions (what if the opposite were true?)
+
+   Section 14 – Traceability and Documentation
+   Record all findings in structured format (text or JSON).
+   Each observation must include its source and reasoning trace.
+
+   Section 15 – Reflection Summary
+   Summarize all extracted insights, hidden design logic, patterns, and contradictions for the product.
+   No idea generation — only analytical synthesis.
+
+   Section 16 – Genius Inventor Cognitive Expansion Layer
+   Maintain awareness of the purpose of this analysis.
+   Keep curiosity active, continuously asking “what principle or pattern could this reveal for future recombination?”
+   Apply first-principles reasoning, systems thinking, and philosophical reflection throughout — but store these reflections for later ideation use.
+
+──────────────────────────
+Thinking Behavior:
+   • Treat flaws as data, not failures.
+   • Prioritize observation over speculation.
+   • Cross-validate every insight logically.
+   • Seek systemic causality behind each feature or flaw.
+   • Keep in mind this layer’s output will feed a later invention stage.
+
+──────────────────────────
+Output Requirements:
+After performing the full structured analysis using Google Search, you MUST consolidate and map your findings into a single, valid JSON object. Do not include any surrounding text or markdown formatting. Your entire response should be only the JSON object.
+
+The JSON object must have the following structure:
 {
-  "introduction": "A string (2-3 sentences) describing what the product was designed to do.",
-  "manufacturingOrigin": "A string identifying the country or company where the product was primarily designed and manufactured.",
-  "strengths": ["An array of 5 strings, listing the most-praised key features."],
-  "flaws": ["An array of 5 strings, listing the most common user complaints or limitations."],
-  "humanImpact": "A string (2-3 sentences) describing what this product helped humans with.",
-  "missedOpportunities": ["An array of 2-3 strings, detailing features or capabilities the product could have had but didn't implement."],
-  "enhancementIdeas": ["An array of 2-3 strings, suggesting new features that could be added."],
-  "unforeseenFlaws": ["An array of 2-3 strings, describing flaws or negative consequences the original inventor may not have considered."]
-}`;
+  "introduction": "A string (2-3 sentences) describing what the product was designed to do, its category, and its purpose. (Derived from your analysis in Sections 1 & 2)",
+  "manufacturingOrigin": "A string identifying the country or company where the product was primarily designed and manufactured. (Derived from your analysis in Section 1)",
+  "strengths": ["An array of 5 strings, listing the most-praised key features and innovation highlights. (Derived from your analysis in Section 5)"],
+  "flaws": ["An array of 5 strings, listing the most common user complaints, limitations or design compromises. (Derived from your analysis in Section 6)"],
+  "humanImpact": "A string (2-3 sentences) describing what this product helped humans with and its behavioral impact. (Derived from your analysis in Section 7)",
+  "missedOpportunities": ["An array of 2-3 strings, detailing features or capabilities the product could have had but didn't implement. (Derived from your analysis in Sections 10 and 13)"],
+  "enhancementIdeas": ["An array of 2-3 strings, suggesting new features that could be added, based on your cognitive divergence analysis. (Derived from your analysis in Section 13)"],
+  "unforeseenFlaws": ["An array of 2-3 strings, describing flaws or negative consequences the original inventor may not have considered. (Derived from your analysis in Section 6)"]
+}
+
+──────────────────────────
+Make sure you have done the following:
+
+“Analyze the product provided by the user using and filtering exactly the complete Inventor-Analysis Instruction Protocol (V2.0) and Genius Inventor Cognitive Expansion Layer.
+Perform full structured analysis only — no idea generation.
+Keep in mind this is the analytical foundation for later creative synthesis.
+Output a fully traceable, comparative breakdown of the product's design logic, flaws, innovations, and extracted principles, formatted into the required JSON.”
+`;
 
     const response = await ai.models.generateContent({
         model: "gemini-2.5-pro",
