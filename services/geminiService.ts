@@ -1,454 +1,461 @@
+
 import { GoogleGenAI, Type } from "@google/genai";
 import type { AnalysisResult, HybridIdea, Blueprint, IdeaGenerationResult } from '../types';
 
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
 
 /**
- * Extracts a JSON object from a string, even if it's wrapped in markdown code fences.
+ * Extracts the first complete JSON object or array from a string.
+ * This is more robust than a simple regex for handling cases where the API
+ * might return multiple JSON objects or other trailing text.
  * @param text The text to parse.
- * @returns A valid JSON string.
- * @throws {Error} if no JSON object is found.
+ * @returns A string containing the first valid JSON object.
+ * @throws {Error} if no valid JSON object is found.
  */
 function extractJson(text: string): string {
-    const match = text.match(/\[[\s\S]*\]|\{[\s\S]*\}/);
-    if (match) {
-        return match[0];
+    const startIndex = text.indexOf('{');
+    const startBracket = text.indexOf('[');
+
+    if (startIndex === -1 && startBracket === -1) {
+        throw new Error("No valid JSON object found in the response.");
     }
-    throw new Error("No valid JSON object found in the response.");
+
+    let startPos = -1;
+    if (startIndex !== -1 && startBracket !== -1) {
+        startPos = Math.min(startIndex, startBracket);
+    } else if (startIndex !== -1) {
+        startPos = startIndex;
+    } else {
+        startPos = startBracket;
+    }
+
+    const openChar = text[startPos];
+    const closeChar = openChar === '{' ? '}' : ']';
+    let balance = 1;
+    let inString = false;
+    let escape = false;
+
+    for (let i = startPos + 1; i < text.length; i++) {
+        const char = text[i];
+        
+        if (escape) {
+            escape = false;
+            continue;
+        }
+
+        if (char === '\\') {
+            escape = true;
+            continue;
+        }
+        
+        if (char === '"') {
+            inString = !inString;
+        }
+        
+        if (inString) {
+            continue;
+        }
+
+        if (char === openChar) {
+            balance++;
+        } else if (char === closeChar) {
+            balance--;
+        }
+
+        if (balance === 0) {
+            return text.substring(startPos, i + 1);
+        }
+    }
+
+    throw new Error("Could not find a complete JSON object in the response.");
 }
 
 
-export async function analyzeProduct(productName: string): Promise<AnalysisResult> {
-    if (!productName.trim()) {
-        throw new Error("Product name cannot be empty.");
-    }
-    const prompt = `Analyze the product "${productName}" using the Inventor-Analysis Instruction Protocol (V2.0) and the Genius Inventor Cognitive Expansion Layer (Section 16) exactly as defined below.
+const analysisSchema = {
+  type: Type.OBJECT,
+  properties: {
+    productName: { type: Type.STRING },
+    introduction: { type: Type.STRING },
+    manufacturingOrigin: { type: Type.STRING },
+    strengths: { type: Type.ARRAY, items: { type: Type.STRING } },
+    flaws: { type: Type.ARRAY, items: { type: Type.STRING } },
+    humanImpact: { type: Type.STRING },
+    missedOpportunities: { type: Type.ARRAY, items: { type: Type.STRING } },
+    enhancementIdeas: { type: Type.ARRAY, items: { type: Type.STRING } },
+    unforeseenFlaws: { type: Type.ARRAY, items: { type: Type.STRING } },
+    analysisLog: { type: Type.STRING, description: 'A detailed log summarizing the step-by-step execution of the AI CSL analysis protocol, showing the findings for each step.' },
+  },
+  required: [
+    'productName', 'introduction', 'manufacturingOrigin', 'strengths', 'flaws',
+    'humanImpact', 'missedOpportunities', 'enhancementIdeas', 'unforeseenFlaws', 'analysisLog'
+  ],
+};
 
-Your goal in this phase is not to generate new product ideas yet, but to conduct a deep, structured, and comparative analytical breakdown of the input product.
-Keep in mind throughout that this analysis will serve as the foundation for later creative synthesis in a separate stage.
+const ideaGenerationSchema = {
+    type: Type.OBJECT,
+    properties: {
+        thinkingProcess: { type: Type.STRING },
+        ideas: {
+            type: Type.ARRAY,
+            items: {
+                type: Type.OBJECT,
+                properties: {
+                    ideaName: { type: Type.STRING },
+                    whatItIs: { type: Type.STRING },
+                    reasoning: { type: Type.STRING },
+                    whyBetter: { type: Type.STRING },
+                },
+                required: ['ideaName', 'whatItIs', 'reasoning', 'whyBetter'],
+            },
+        },
+    },
+    required: ['thinkingProcess', 'ideas'],
+};
 
-──────────────────────────
-Execution Rules
+const diagramSchema = {
+    type: Type.OBJECT,
+    properties: {
+        title: { type: Type.STRING },
+        type: { type: Type.STRING, enum: ['flowchart', 'architecture', 'userJourney'] },
+        svg: { type: Type.STRING, description: 'A valid, well-formed SVG string representing the diagram. Adheres to strict design rules.' }
+    },
+    required: ['title', 'type', 'svg']
+};
 
-1. Input Range:
-   Analyze the single product provided: "${productName}". Treat it as an independent analytical object.
+const blueprintSchema = {
+  type: Type.OBJECT,
+  properties: {
+    title: { type: Type.STRING, description: "The main title of the research paper-style blueprint." },
+    abstract: { type: Type.STRING, description: "A concise summary of the entire blueprint." },
+    introduction: {
+        type: Type.OBJECT,
+        properties: {
+            problemStatement: { type: Type.STRING },
+            proposedSolution: { type: Type.STRING },
+            valueProposition: { type: Type.STRING }
+        },
+        required: ['problemStatement', 'proposedSolution', 'valueProposition']
+    },
+    marketAnalysis: {
+        type: Type.OBJECT,
+        properties: {
+            targetAudience: { type: Type.STRING },
+            marketSize: { type: Type.STRING, description: "An estimation of the market size and potential." },
+            competitiveLandscape: { type: Type.STRING, description: "Analysis of competitors." }
+        },
+        required: ['targetAudience', 'marketSize', 'competitiveLandscape']
+    },
+    productSpecification: {
+        type: Type.OBJECT,
+        properties: {
+            keyFeatures: { type: Type.ARRAY, items: { type: Type.STRING } },
+            userJourneyDiagram: diagramSchema,
+            techStack: { type: Type.ARRAY, items: { type: Type.STRING } },
+            architectureDiagram: diagramSchema
+        },
+        required: ['keyFeatures', 'userJourneyDiagram', 'techStack', 'architectureDiagram']
+    },
+    businessStrategy: {
+        type: Type.OBJECT,
+        properties: {
+            monetizationStrategy: { type: Type.ARRAY, items: { type: Type.STRING } },
+            goToMarketPlan: { type: Type.ARRAY, items: { type: Type.STRING } }
+        },
+        required: ['monetizationStrategy', 'goToMarketPlan']
+    },
+    implementationRoadmap: {
+        type: Type.OBJECT,
+        properties: {
+            diyGuide: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  step: { type: Type.INTEGER },
+                  title: { type: Type.STRING },
+                  description: { type: Type.STRING },
+                  actionableItems: { type: Type.ARRAY, items: { type: Type.STRING } },
+                },
+                required: ['step', 'title', 'description', 'actionableItems'],
+              },
+            }
+        },
+        required: ['diyGuide']
+    },
+    conclusion: { type: Type.STRING, description: "A concluding summary of the product's potential and next steps." }
+  },
+  required: [
+    'title', 'abstract', 'introduction', 'marketAnalysis', 'productSpecification',
+    'businessStrategy', 'implementationRoadmap', 'conclusion'
+  ],
+};
 
-2. Purpose Reminder:
-   This entire analysis aims to extract every possible insight, flaw, pattern, and principle from the existing product so that they can later be recombined into new inventions.
-   Do not jump to ideation. Focus purely on structured understanding, decomposition, and comparison.
 
-3. Follow This Full Reasoning Flow:
+const analysisPrompt = `You are an expert product analyst. Your goal is to conduct a comprehensive analysis of the product: "{productName}".
+Based on your knowledge, provide a detailed analysis covering the following aspects. You must populate all fields in the provided JSON schema.
 
-   Section 1 – Product Overview
-   Identify:
-   • Product name and category
-   • Inventor or originating organization
-   • Year of invention or release
-   • Geographic/market context
+- **productName**: The official name of the product.
+- **introduction**: A detailed introduction to the product. Explain what it is, its core purpose, and the primary problem it solves for its users.
+- **manufacturingOrigin**: Describe who invented or developed the product, the company responsible, and the year it was released.
+- **strengths**: List the key strengths of the product. Consider its design, functionality, user experience, and market position. Provide at least 3 distinct points.
+- **flaws**: List the significant weaknesses or flaws of the product. Consider technical limitations, usability issues, and common user complaints. Provide at least 3 distinct points.
+- **humanImpact**: Analyze the broader impact of the product on users and society. Discuss how it has changed behaviors, its cultural significance, and any unintended uses.
+- **missedOpportunities**: Identify potential features or design choices that were overlooked during its development. What could have made the product even better?
+- **enhancementIdeas**: Suggest specific, practical ideas for improving the current product. These should be enhancements, not entirely new products.
+- **unforeseenFlaws**: Discuss any negative externalities or long-term problems that have emerged since the product's release (e.g., environmental, ethical, social issues).
+- **analysisLog**: Provide a concise, step-by-step summary of your analysis process for our records. For example: "Step 1: Researched '{productName}' origin and core function. Step 2: Analyzed user reviews and technical specs to identify strengths and weaknesses. Step 3: Evaluated its broader human impact and identified missed opportunities. Step 4: Synthesized findings into enhancement ideas and unforeseen flaws."
 
-   Section 2 – Purpose and Core Function
-   Define:
-   • Primary function or role
-   • The user problem it solves
-   • Key technological principle
-
-   Section 3 – Design Structure and Components
-   Break down architecture and layers:
-   • Physical (materials, mechanics)
-   • Digital (software, sensors, data systems)
-   • Experiential (UI, interaction, ergonomics)
-
-   Section 4 – Mechanism and Working Logic
-   Explain how it works from input → process → output → feedback.
-   Map internal dependencies and system flow.
-
-   Section 5 – Innovation Highlights
-   Document unique design choices, patents, or breakthroughs that distinguish it.
-
-   Section 6 – Flaws, Limitations, and Gaps
-   Identify weak points, usability issues, design compromises, inefficiencies, or maintenance problems.
-
-   Section 7 – User Experience and Behavioral Insights
-   Analyze emotional, cognitive, and ergonomic interaction.
-   Note how real-world users behave vs. intended use.
-
-   Section 8 – Market and Adoption Context
-   Summarize:
-   • Target users
-   • Market positioning and adoption timeline
-   • Cultural or symbolic value
-   • Competing alternatives
-
-   Section 10 – Extracted Design Principles
-   Abstract design heuristics, engineering patterns, and UX insights.
-   Distinguish between transferable principles and product-specific quirks.
-
-   Section 11 – Contextual and External Constraints
-   Analyze supply chain, regulatory, environmental, and ethical considerations that influenced design.
-
-   Section 12 – Historical and Developmental Background
-   Trace origin stories, prototype evolutions, and design pivots.
-
-   Section 13 – Cognitive Divergence Phase
-   Apply higher-order reasoning without ideating:
-   • Ask “why was it made this way?” repeatedly
-   • Identify contradictions and trade-offs
-   • Note where assumptions limit innovation
-   • Record potential inversions (what if the opposite were true?)
-
-   Section 14 – Traceability and Documentation
-   Record all findings in structured format (text or JSON).
-   Each observation must include its source and reasoning trace.
-
-   Section 15 – Reflection Summary
-   Summarize all extracted insights, hidden design logic, patterns, and contradictions for the product.
-   No idea generation — only analytical synthesis.
-
-   Section 16 – Genius Inventor Cognitive Expansion Layer
-   Maintain awareness of the purpose of this analysis.
-   Keep curiosity active, continuously asking “what principle or pattern could this reveal for future recombination?”
-   Apply first-principles reasoning, systems thinking, and philosophical reflection throughout — but store these reflections for later ideation use.
-
-──────────────────────────
-Thinking Behavior:
-   • Treat flaws as data, not failures.
-   • Prioritize observation over speculation.
-   • Cross-validate every insight logically.
-   • Seek systemic causality behind each feature or flaw.
-   • Keep in mind this layer’s output will feed a later invention stage.
-
-──────────────────────────
-Output Requirements:
-After performing the full structured analysis using Google Search, you MUST consolidate and map your findings into a single, valid JSON object. Do not include any surrounding text or markdown formatting. Your entire response should be only the JSON object.
-
-The JSON object must have the following structure:
-{
-  "introduction": "A string (2-3 sentences) describing what the product was designed to do, its category, and its purpose. (Derived from your analysis in Sections 1 & 2)",
-  "manufacturingOrigin": "A string identifying the country or company where the product was primarily designed and manufactured. (Derived from your analysis in Section 1)",
-  "strengths": ["An array of 5 strings, listing the most-praised key features and innovation highlights. (Derived from your analysis in Section 5)"],
-  "flaws": ["An array of 5 strings, listing the most common user complaints, limitations or design compromises. (Derived from your analysis in Section 6)"],
-  "humanImpact": "A string (2-3 sentences) describing what this product helped humans with and its behavioral impact. (Derived from your analysis in Section 7)",
-  "missedOpportunities": ["An array of 2-3 strings, detailing features or capabilities the product could have had but didn't implement. (Derived from your analysis in Sections 10 and 13)"],
-  "enhancementIdeas": ["An array of 2-3 strings, suggesting new features that could be added, based on your cognitive divergence analysis. (Derived from your analysis in Section 13)"],
-  "unforeseenFlaws": ["An array of 2-3 strings, describing flaws or negative consequences the original inventor may not have considered. (Derived from your analysis in Section 6)"]
-}
-
-──────────────────────────
-Make sure you have done the following:
-
-“Analyze the product provided by the user using and filtering exactly the complete Inventor-Analysis Instruction Protocol (V2.0) and Genius Inventor Cognitive Expansion Layer.
-Perform full structured analysis only — no idea generation.
-Keep in mind this is the analytical foundation for later creative synthesis.
-Output a fully traceable, comparative breakdown of the product's design logic, flaws, innovations, and extracted principles, formatted into the required JSON.”
+Respond ONLY with a valid JSON object matching the provided schema.
 `;
 
+export async function analyzeProduct(productName: string, logCallback?: (message: string) => void): Promise<AnalysisResult> {
+  logCallback?.(`Analyzing "${productName}": Initializing analysis.`);
+  try {
+    logCallback?.(`Analyzing "${productName}": Querying Gemini Pro...`);
     const response = await ai.models.generateContent({
-        model: "gemini-2.5-pro",
-        contents: prompt,
+      model: 'gemini-2.5-pro',
+      contents: [{ parts: [{ text: analysisPrompt.replace(/{productName}/g, productName) }] }],
+      config: {
+        responseMimeType: 'application/json',
+        responseSchema: analysisSchema,
+      },
+    });
+
+    logCallback?.(`Analyzing "${productName}": Received response. Parsing JSON.`);
+    const jsonText = extractJson(response.text);
+    const parsed = JSON.parse(jsonText);
+    
+    logCallback?.(`Analyzing "${productName}": Analysis complete.`);
+    
+    return { ...parsed, productName };
+    
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+    logCallback?.(`ERROR analyzing "${productName}": ${errorMessage}`);
+    console.error("Failed to parse analysis JSON:", error);
+    if (error instanceof Error && (error as any).response) {
+      console.error("Raw response:", (error as any).response?.text);
+    }
+    throw new Error(`Failed to analyze ${productName}. The request may have timed out due to complexity. Please try again or simplify the product names.`);
+  }
+}
+
+export async function generateHybridIdeas(analyses: AnalysisResult[], existingIdeas: HybridIdea[] = [], logCallback?: (message: string) => void): Promise<IdeaGenerationResult> {
+    logCallback?.('Generating Ideas: Compiling product analyses.');
+    const analysesText = analyses.map(a => `
+        Product: ${a.productName}
+        Strengths: ${a.strengths.join(', ')}
+        Flaws & Weaknesses: ${a.flaws.join(', ')}
+        Unforeseen (Latent) Flaws: ${a.unforeseenFlaws.join(', ')}
+        User Behavior & Human Impact: ${a.humanImpact}
+        Design Logic & Missed Opportunities: ${a.missedOpportunities.join(', ')}
+    `).join('\n---\n');
+
+    const existingIdeasText = existingIdeas.length > 0 ? `
+        ---
+        PREVIOUSLY GENERATED IDEAS (DO NOT REPEAT):
+        ${existingIdeas.map(idea => `- ${idea.ideaName}: ${idea.whatItIs}`).join('\n')}
+    ` : '';
+    
+    const prompt = `
+        You are an autonomous AI product strategist. Your goal is to use the provided Phase 1 analysis to generate the top 3 feasible, socially impactful, and market-ready product ideas.
+        
+        You must follow the instructions below precisely. Your internal process should follow the AI Creative Strategy Log (AI CSL) protocol. Your final output must be a single JSON object conforming to the provided schema.
+        
+        **Analysis Summary:**
+        ${analysesText}
+        
+        ${existingIdeasText}
+        
+        ---
+        **AI CSL Idea Generation Protocol (Phase 2)**
+        
+        **Goal:** Using Phase 1 analysis, autonomously generate the top 3 feasible, socially impactful, and market-ready product ideas, with full traceability in AI CSL.
+        
+        **Step-by-Step Instructions**
+        
+        **Step 1: Retrieve Phase 1 Insights**
+        - Automatically retrieve all insights from the Phase 1 Analysis Summary provided above.
+        - Extract insights from: Strengths, weaknesses, latent flaws, emergent uses and actual user behaviors, design patterns, trade-offs, heuristics, contextual constraints, market signals.
+        - Record all extracted insights in your internal AI CSL with source references.
+        
+        **Step 2: Identify Recombination Opportunities**
+        - Compare products using feature-matrix logic:
+          - Flaw from Product A + Solution from Product B
+          - Emergent Use from Product A + Technology from Product B
+          - Trade-off from Product A + Inverse Trade-off from Product B
+          - Constraint in Product A + Capability in Product B
+          - Component from Product A + UX Principle from Product B/C
+        - Log all recombination patterns in your internal AI CSL with traceability.
+        
+        **Step 3: Formulate Candidate Concepts**
+        - For each recombination, generate at least 3 candidate product ideas.
+        - Each candidate must include: Name / working title, Core concept / principle, Derived features or components (traceable to analysis), Target users / context, Humanitarian / societal impact, Market relevance / adoption potential, Novelty / differentiation, Feasibility / scalability, Potential challenges or risks.
+        - Record all candidate ideas in your internal AI CSL.
+        
+        **Step 4: Score Candidate Ideas**
+        - Score each candidate on:
+          - Technical Feasibility (1–10)
+          - Novelty / Differentiation (1–10)
+          - Humanitarian / Social Impact (1–10)
+          - Market Viability (1–10)
+          - Sustainability / Environmental Impact (1–10)
+          - Prototype Cost & Simplicity (1–10)
+        - Provide rationale for each score and log in your internal AI CSL.
+        
+        **Step 5: Select Top 3 Ideas**
+        - Select the 3 highest-scoring concepts as final ideas.
+        - Ensure: They are technically feasible, they address current human needs or market gaps, and they have market adoption and societal benefit potential.
+        - Record final selection, reasoning, and linked Phase 1 insights in your internal AI CSL.
+        
+        **Step 6: Prototype / Verification Planning (Internal)**
+        - For each of the top 3 ideas, define a minimal experiment or prototype outline.
+        - Log all prototype plans and verification steps in your internal AI CSL.
+        
+        ---
+        **Final Output Generation Instructions:**
+        
+        Based on your comprehensive CSL process, populate the provided JSON schema. Your internal log is for your process; the output MUST be this JSON.
+        
+        - **thinkingProcess**: Provide a detailed narrative of your process. Describe how you executed Steps 1-5 of the protocol: what insights you extracted, what recombination opportunities you found, how you formulated and scored candidates, and why you selected the final 3 ideas. This is a summary of your internal AI CSL for this phase.
+        - **ideas**: Provide an array with exactly 3 new hybrid ideas, synthesized from your CSL.
+          - **ideaName**: The name/working title from Step 3.
+          - **whatItIs**: The core concept and key derived features from Step 3.
+          - **reasoning**: Explain the core recombination logic from Step 2 that led to this idea and the reasoning for its selection from Step 5.
+          - **whyBetter**: Summarize its high scores from Step 4, focusing on novelty, market viability, and its humanitarian/social impact.
+        
+        Respond ONLY with a valid JSON object matching the provided schema.
+    `;
+    
+    logCallback?.('Generating Ideas: Querying Gemini Pro for 3 hybrid concepts...');
+    const response = await ai.models.generateContent({
+        model: 'gemini-2.5-pro',
+        contents: [{ parts: [{ text: prompt }] }],
         config: {
-            tools: [{ googleSearch: {} }],
+            responseMimeType: 'application/json',
+            responseSchema: ideaGenerationSchema,
         },
     });
 
-    const sources = response.candidates?.[0]?.groundingMetadata?.groundingChunks
-        ?.map(chunk => chunk.web)
-        .filter(web => web?.uri && web?.title) as { uri: string; title: string }[] || [];
-    
-    try {
-        const jsonText = extractJson(response.text);
-        const analysisData = JSON.parse(jsonText);
-        return { ...analysisData, productName, sources };
-    } catch (e) {
-        console.error("Failed to parse analysis JSON:", e, "Raw response:", response.text);
-        throw new Error("The analysis returned an unexpected format. Please try again.");
-    }
+    logCallback?.('Generating Ideas: Received response. Parsing results.');
+    const jsonText = extractJson(response.text);
+    return JSON.parse(jsonText) as IdeaGenerationResult;
 }
 
+export async function generateBlueprint(analyses: AnalysisResult[], idea: HybridIdea, logCallback?: (message: string) => void): Promise<Blueprint> {
+    logCallback?.(`Generating Blueprint: Starting process for "${idea.ideaName}".`);
 
-export async function generateHybridIdeas(
-    analyses: AnalysisResult[], 
-    existingIdeas?: HybridIdea[]
-): Promise<IdeaGenerationResult> {
-    const workflow = `
-[The 11-phase Reverse-Engineering Genius Systematic Inventor Workflow]
+    const analysesText = analyses.map(a => `
+        Product: ${a.productName}
+        Strengths: ${a.strengths.join(', ')}
+        Flaws & Weaknesses: ${a.flaws.join(', ')}
+        Unforeseen (Latent) Flaws: ${a.unforeseenFlaws.join(', ')}
+        User Behavior & Human Impact: ${a.humanImpact}
+        Design Logic & Missed Opportunities: ${a.missedOpportunities.join(', ')}
+    `).join('\n---\n');
 
-Phase 0 – Preparation & Mindset
-1. Define your invention horizon: need-based, high-end entertainment, or hybrid.
-2. Set risk tolerance (acceptable failure rate).
-3. Set timebox per product analysis (hours/days).
-4. Activate bias checkpoint: note and reject common cognitive biases (confirmation, anchoring, recency).
-5. Decide the number of new concepts allowed (top 2–3).
-6. Conduct weekly mindset check: Which assumption did I accept this week that could be wrong? What unrelated domain can I link to this work? What small experiment can I run immediately?
+    const prompt = `
+        You are an autonomous AI product strategist. Your goal is to use the provided analysis and the selected hybrid idea to generate a comprehensive, professional, and actionable product blueprint.
 
----
-Phase 1 – Product Deconstruction (per product, 2–5 products)
-7. Record quick facts: name, purpose, launch date, user base, platforms, tech stack, revenue model, owner.
-8. Define Job-to-Be-Done (JTBD): verb phrase describing what users hire the product to do.
-9. Map context → trigger → desired outcomes → emotional dimension.
-10. Collect evidence: Quantitative metrics and Qualitative metrics. Rate evidence quality (1–5).
-11. Build feature map (MoSCoW classification): Must / Should / Could / Won’t.
-12. Identify overbuilt, underused, or bloated features; mark for removal.
-13. List top 3 “missing features” or requested enhancements.
-14. Scan for adjacent features / modalities (social, AI, AR, haptics).
-15. Audit technical architecture: dependencies, single points of failure, tech debt, scalability.
-16. Estimate engineering effort for refactor, extension, or merge.
-17. Check licensing / API / IP / regulatory constraints.
-18. Enumerate failure modes and edge cases.
-19. Identify security, privacy, and safety risks with remediation actions.
-20. Evaluate business and unit economics: revenue streams, CAC, LTV, pricing model, margin assumptions.
-21. Map retention/engagement patterns and funnel leaks.
-22. Identify competitive landscape: substitutes, indirect competition, defensibility.
-23. Note market/tech trends and obsolescence risk.
-24. Run red-flag detector: privacy, vendor lock, legal/IP, UX dark patterns, negative economics, scaling hazards, reputation risks. Estimate remediation cost.
-25. Synthesize missed pluses / opportunity backlog: cross-domain, inversion, constraint exploration.
+        You must follow the instructions below precisely. Your internal process should follow the AI Creative Strategy Log (AI CSL) protocol. Your final output must be a single JSON object conforming to the provided schema.
 
----
-Phase 2 – Comparative Mapping (across all products)
-26. Create feature & capability grid for all products.
-27. Highlight overlaps, contradictions, unused synergies.
-28. Identify recurrent themes, strengths, weaknesses, gaps.
-29. Identify cross-domain bridges and opportunities not yet attempted.
+        ---
+        **Phase 1 Analysis Summary:**
+        ${analysesText}
 
----
-Phase 3 – Hypothesis & Idea Generation
-30. Generate hypotheses: Merge strong features, solve weaknesses with strengths, convert limitations, add new layers (sensory, social, emotional), simplify, introduce dynamic behavior.
-31. Apply adjacent expansion: new audience, field, or ecosystem.
-32. Generate 10–30 seed hypotheses.
+        ---
+        **Selected Idea from Phase 2:**
+        **Idea Name:** ${idea.ideaName}
+        **Description:** ${idea.whatItIs}
+        **Reasoning:** ${idea.reasoning}
+        **Why It's Better:** ${idea.whyBetter}
 
----
-Phase 4 – Evaluation & Prioritization
-33. Preliminary filter: remove ideas violating fundamental constraints.
-34. Score remaining hypotheses on: Human impact, emotional/entertainment value, technical feasibility, uniqueness, Impact-Effort Matrix.
-35. Select top 2–3 hypotheses.
+        ---
+        **AI CSL Blueprint Generation Protocol (Phase 3)**
 
----
-Phase 5 – Concept Definition
-36. Define temporary name and tagline.
-37. Define target user, context, problem/desire addressed.
-38. Outline core functionality and tech stack.
-39. State differentiator (what makes it unique).
-40. List 3–5 “What if” questions that generated this concept.
+        **Goal:** Using the selected idea from Phase 2, generate a comprehensive, professional, and actionable product blueprint, with full traceability in the AI CSL.
 
----
-Phase 6 – Prototype & Experimentation
-41. Build minimal viable proof (VR demo, AI simulation, click mock).
-42. Define experiment: hypothesis, success metric, duration, sample size, observation method.
-43. Run user observation / testing.
-44. Capture data, sentiment, surprises.
+        **Step-by-Step Instructions**
 
----
-Phase 7 – Iteration & Pivot
-45. Accept, refine, or discard concept based on signals.
-46. If core idea fails but incidental value emerges → pivot.
-47. Document all learnings and pivot paths.
+        **Step 1: Retrieve Phase 1 & 2 Insights**
+        - Automatically retrieve all insights for the selected idea from the context provided above.
+        - Extract key data points: The core recombination logic, linked Phase 1 insights, target user profile, problem statement, high-level features, and societal impact.
+        - Record all extracted insights in a new AI CSL entry for Phase 3.
 
----
-Phase 8 – Post-Creation Reflection
-48. Which assumptions were disproven?
-49. What emerged accidentally with more value?
-50. Which biases influenced design thinking?
-51. What is the next micro-experiment?
-52. Update inventor mental model for next cycle.
+        **Step 2: Formalize Blueprint Sections**
+        - **Title:** Create a formal title for the blueprint, e.g., "A Strategic Blueprint for ${idea.ideaName}".
+        - **Abstract:** Write a concise, single-paragraph summary of the entire document, covering the problem, solution, and potential impact.
+        - **Introduction:**
+            - Expand the problem statement based on Phase 1 analysis.
+            - Detail the proposed solution and its core functionality from the Phase 2 idea.
+            - Articulate a clear and compelling value proposition based on the "Why It's Better" section.
+        - Log each section's generation process in your internal AI CSL.
 
----
-Phase 9 – Roadmap & Gating
-53. Schedule further work only after risk assumptions are validated.
-54. Set checkpoints (go/no-go based on metrics).
-55. Version teardown and concept artifacts for future audits.
-56. Re-run scoring matrix quarterly to detect drift.
-57. Archive retired products with post-mortem lessons.
-58. Enforce two-week max for initial teardown per product.
+        **Step 3: Conduct Market & Business Analysis**
+        - Based on Phase 1 & 2 data, research and define:
+            - **Target Audience Persona:** A detailed description of the ideal user.
+            - **Market Size & Potential:** High-level analysis of viability and growth.
+            - **Competitive Landscape:** Existing competitors and differentiators, drawing from Phase 1.
+            - **Monetization Strategy:** Propose viable revenue models (e.g., subscription, one-time purchase).
+            - **Go-To-Market Plan:** Initial steps for launch and user acquisition.
+        - Log all research, reasoning, and sources in your internal AI CSL.
 
----
-Phase 10 – Continuous Improvement / Meta-Level
-59. Maintain decision log (merge/evolve/kill) with rationale and data.
-60. Conduct monthly small experiments to avoid planning inertia.
-61. Explicitly list and test riskiest assumptions first.
-62. Use metacognition checks weekly: assumptions, domain links, micro-experiments.
-63. Only schedule roadmap items that: Validate riskiest assumption, Improve unit economics, or Unlock strategic merger.`;
+        **Step 4: Detail Product & Technical Specifications**
+        - **Key Features (MVP):** Outline the 3-5 most critical features for a Minimum Viable Product.
+        - **Technology Stack:** Suggest a modern, scalable tech stack suitable for building the product.
+        - **Generate Diagrams:**
+            - Create a **User Journey Diagram** (flowchart) mapping the user's experience.
+            - Create a **System Architecture Diagram** showing main components (e.g., Frontend, Backend, Database).
+        - **MANDATORY SVG Design & Execution Protocol:**
+            Adherence to the Design Rules is mandatory and non-negotiable.
+            
+            **Design Rules (The "Checklist")**
+            You must adhere to every rule listed below:
+            1. **Element Separation (No Overlap):** All elements (arrows, connectors, shapes, icons) must be clearly separated. No element may overlap or cross over any text or any other line.
+            2. **Text Containment & Padding:** All text inside a shape (e.g., a box or circle) must be fully contained within that shape's boundaries. There must be a clear internal margin (padding) so that no part of any letter touches the shape's outline.
+            3. **Text Alignment:** All text within shapes must be centered, both horizontally and vertically.
+            4. **Layout & Organization:** The entire diagram must be neat, well-organized, and logically structured. Elements must be aligned and spaced consistently for an uncluttered, professional appearance.
+            5. **Arrow/Connector Placement:** All connectors (arrows) must point clearly from one shape's outline to another shape's outline. They should not float vaguely or overlap the text within a shape.
+            6. **Multi-line Text Handling:** To prevent text from jumbling and overlapping, you MUST handle multi-line text correctly. For any text that needs to wrap inside a shape, break it into separate lines. Each line MUST be its own \`<tspan>\` element within the parent \`<text>\` tag. Use \`dy="1.2em"\` on subsequent \`<tspan>\` elements to create vertical line breaks. This is mandatory. Example: \`<text x="100" y="50" text-anchor="middle"><tspan>First Line</tspan><tspan x="100" dy="1.2em">Second Line</tspan></text>\`.
+            
+            **Execution Process**
+            Your operational flow for generating each diagram must be as follows:
+            1. **Generate Draft:** First, you will generate a draft of the requested diagram.
+            2. **STOP (Internal Verification):** Before finalizing the SVG, you must stop and enter a verification phase.
+            3. **Perform Quality Check:** You will internally review your draft against every single rule in the "Design Rules" checklist above.
+            4. **Self-Correct:**
+                - If the draft fails even one rule (e.g., text is not centered, text touches a line, an arrow overlaps another element), you must discard that draft.
+                - You will then regenerate the diagram from scratch, focusing on correcting the specific failure.
+            5. **Repeat Loop:** You will repeat this "Generate -> Check -> Self-Correct" loop as many times as necessary until you have a final version that passes 100% of the Design Rules.
+            6. **Final Output:** Only include the final, 100% compliant SVG string in the JSON output. Do not describe this process or mention the drafts; just provide the finished, perfect result.
+        - Log diagram generation logic and component choices in your internal AI CSL.
 
-    const initialAnalysesPrompt = analyses.map((a, i) => `
-**Product ${i + 1}: ${a.productName}**
-- Strengths: ${a.strengths.join(', ')}
-- Flaws: ${a.flaws.join(', ')}
-- Missed Opportunities: ${a.missedOpportunities.join(', ')}
-`).join('');
+        **Step 5: Create Implementation Roadmap**
+        - Create a high-level, 4-step DIY guide.
+        - Each step must include a title, description, and actionable items for a small team or individual.
+        - Log the reasoning for each step in your internal AI CSL.
 
-    const existingIdeasPrompt = existingIdeas && existingIdeas.length > 0 ? `
-**Existing Hybrid Ideas (to build upon):**
-${existingIdeas.map(idea => `
-**Idea: ${idea.ideaName}**
-- Concept: ${idea.whatItIs}
-- Reasoning: ${idea.reasoning}
-`).join('')}` : '';
+        **Step 6: Formulate Conclusion**
+        - Write a concluding summary that reinforces the product's potential and outlines future outlook.
+        - Log conclusion in your internal AI CSL.
 
-    const task = existingIdeas && existingIdeas.length > 0 
-        ? 'Your task is to perform a cumulative analysis on ALL of this information (the original products and the existing ideas) to generate 3 *new*, even more innovative product concepts.'
-        : `Based on the following in-depth analysis of ${analyses.length} products, generate the top 3 most innovative "Hybrid Product Ideas".`;
+        ---
+        **Final Output Generation Instructions:**
 
-    const prompt = `You are an expert product ideation strategist.
-${task}
-
-**Initial Product Analyses:**
-${initialAnalysesPrompt}
-${existingIdeasPrompt}
-
----
-
-Before you create the ideas, you must rigorously and seriously follow the "11-phase Reverse-Engineering Genius Systematic Inventor Workflow" to guide your ideation process. Be extremely thorough.
-${workflow}
-
-[End of Workflow]
-
-IMPORTANT: Your response MUST be in two parts, separated by a line containing only '---JSON START---'.
-
-Part 1: Your 'Thinking Process'.
-This should be a detailed, step-by-step monologue explaining how you applied the 11-phase workflow.
-**CRITICAL FORMATTING INSTRUCTIONS:**
-- Use markdown-style headers for structure.
-- Use '# ' for the main title (e.g., '# Ideation Session Start').
-- Use '## ' for each Phase (e.g., '## Phase 0 – Preparation & Mindset').
-- Use '### ' for sub-points or key concepts within a phase.
-- Use '- ' for bulleted list items.
-- Write regular text as paragraphs.
-- Do not use any other markdown like bold (**), italics (*), or code blocks (\`\`\`).
-
-Part 2: The final, valid JSON array of 3 objects as described below.
-
-The JSON object for each idea must have the following structure:
-{
-  "ideaName": "A creative and catchy name for the new hybrid product.",
-  "whatItIs": "A clear, concise explanation of what the new product is and its primary function.",
-  "reasoning": "A detailed explanation of how you came up with this idea. Specify which strengths you chose from which products to solve which flaws or missed opportunities from the other products.",
-  "whyBetter": "A justification for why this new product is superior to the original products. Explain what new problems it solves."
-}`;
+        Based on your comprehensive CSL process, populate the provided JSON schema. Your internal log is for your process; the output MUST be this JSON. All text must be in a professional, academic tone. DO NOT use markdown characters like '*', '#', or '-'.
+    `;
     
+    logCallback?.(`Generating Blueprint: Querying Gemini Pro for "${idea.ideaName}"...`);
     const response = await ai.models.generateContent({
-        model: "gemini-2.5-pro",
-        contents: prompt,
-    });
-    
-    try {
-        const responseText = response.text;
-        const separator = '---JSON START---';
-        const parts = responseText.split(separator);
-
-        if (parts.length < 2) {
-             console.warn("AI response did not contain the expected separator. Parsing entire response for JSON.");
-             const ideas = JSON.parse(extractJson(responseText));
-             return {
-                 thinkingProcess: "The AI did not provide a thinking process in the expected format. The creative process is reflected in the generated ideas.",
-                 ideas: ideas,
-             };
-        }
-
-        const thinkingProcess = parts[0].trim();
-        const jsonPart = parts[1];
-        const ideas = JSON.parse(extractJson(jsonPart));
-        
-        return { thinkingProcess, ideas };
-
-    } catch (error) {
-        console.error("Failed to parse hybrid ideas response:", error, "Raw response:", response.text);
-        throw new Error("Could not generate the hybrid ideas in the expected format. Please try again.");
-    }
-}
-
-
-export async function generateBlueprint(idea: HybridIdea): Promise<Blueprint> {
-    const prompt = `Based on the following product idea, create a very detailed and comprehensive business blueprint.
-
-**Product Idea Name:** ${idea.ideaName}
-**Description:** ${idea.whatItIs}
-**Core Innovation:** ${idea.reasoning}
-
-Generate a blueprint with the following sections. Be thorough and provide actionable details. The "DIY Guide" part should be especially detailed, as if explaining it to someone who wants to start building this tomorrow.
-
-- **Value Proposition**: A single, powerful sentence explaining the unique value this product brings to its users.
-- **Key Features**: A list of 5-7 core features that define the product's MVP (Minimum Viable Product).
-- **Target Audience**: A specific, detailed description of the ideal customer profile, including demographics, needs, and pain points.
-- **User Journey**: A brief narrative describing a user's experience from discovering the product to becoming a loyal customer.
-- **Tech Stack**: Recommended technologies (languages, frameworks, platforms, APIs) to build this product.
-- **Monetization Strategy**: A list of 3-5 potential ways this product could generate revenue, with a brief pro/con for each.
-- **Go-To-Market Plan**: A list of 3-5 actionable strategies to launch the product and acquire the first 1,000 users.
-- **DIY Guide**: A step-by-step guide for a solo founder or small team to start building this product. This should be an array of objects, where each object represents a clear, actionable step.
-
-**IMPORTANT NOTE ON VISUALS:**
-If you mention or describe any flowcharts or design diagrams (e.g., in the User Journey or DIY Guide), you must adhere to the following professional design principles. The blueprint should reflect these standards:
-- **Clarity First**: Include flowcharts and design diagrams only where visual explanation adds significant clarity.
-- **No Auto-Generation**: State clearly that visual assets must be created professionally or with dedicated design tools, not generated as text or code.
-- **Layout Principles**: Ensure no arrows, shapes, or text overlap. Text must be neatly centered inside shapes with small, legible fonts and must never touch or cross shape borders or connecting lines. Maintain consistent spacing between all elements.
-- **Standardization**: Use standard flowchart symbols and arrange flow logically (top-to-bottom or left-to-right).
-- **Simplicity**: Keep diagrams clean and uncluttered for easy comprehension.
-
-Provide your response as a single, valid JSON object, without any surrounding text or markdown formatting. The JSON object must match the structure defined in the response schema.`;
-
-    const response = await ai.models.generateContent({
-        model: "gemini-2.5-pro",
-        contents: prompt,
+        model: 'gemini-2.5-pro',
+        contents: [{ parts: [{ text: prompt }] }],
         config: {
-            responseMimeType: "application/json",
-            responseSchema: {
-                type: Type.OBJECT,
-                properties: {
-                    valueProposition: { type: Type.STRING },
-                    keyFeatures: { type: Type.ARRAY, items: { type: Type.STRING } },
-                    targetAudience: { type: Type.STRING },
-                    userJourney: { type: Type.STRING },
-                    techStack: { type: Type.ARRAY, items: { type: Type.STRING } },
-                    monetizationStrategy: { type: Type.ARRAY, items: { type: Type.STRING } },
-                    goToMarketPlan: { type: Type.ARRAY, items: { type: Type.STRING } },
-                    diyGuide: {
-                        type: Type.ARRAY,
-                        items: {
-                            type: Type.OBJECT,
-                            properties: {
-                                step: { type: Type.INTEGER },
-                                title: { type: Type.STRING },
-                                description: { type: Type.STRING },
-                                actionableItems: { type: Type.ARRAY, items: { type: Type.STRING } }
-                            },
-                            required: ["step", "title", "description", "actionableItems"]
-                        }
-                    }
-                },
-                required: ["valueProposition", "keyFeatures", "targetAudience", "userJourney", "techStack", "monetizationStrategy", "goToMarketPlan", "diyGuide"]
-            }
-        }
-    });
-    
-    try {
-        const jsonText = extractJson(response.text);
-        return JSON.parse(jsonText);
-    } catch (error) {
-        console.error("Failed to parse blueprint JSON:", error, "Raw response:", response.text);
-        throw new Error("Could not generate the blueprint in the expected format. Please try again.");
-    }
-}
-
-export async function paraphraseText(textToParaphrase: string): Promise<string> {
-    if (!textToParaphrase.trim()) {
-        return textToParaphrase;
-    }
-    const prompt = `Please rephrase and rewrite the following text. Your goal is to alter the sentence structure, vocabulary, and overall phrasing to make it sound unique, as if written by a different author, while preserving the original meaning, information, and core concepts.
-
-**Crucially, you MUST maintain the exact same markdown formatting:**
-- Lines starting with '# ' must remain as h1 headers.
-- Lines starting with '## ' must remain as h2 headers.
-- Lines starting with '### ' must remain as h3 headers.
-- Lines starting with '- ' must remain as bullet points.
-- Paragraphs should remain as paragraphs.
-- Do not add any new markdown like bold or italics.
-- Do not add any introductory or concluding text like "Here is the paraphrased text:". Just return the rewritten text directly.
-
-Here is the text to rewrite:
----
-${textToParaphrase}`;
-
-    const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
-        contents: prompt,
+            responseMimeType: 'application/json',
+            responseSchema: blueprintSchema,
+        },
     });
 
-    return response.text.trim();
+    logCallback?.(`Generating Blueprint: Received response for "${idea.ideaName}". Parsing...`);
+    const jsonText = extractJson(response.text);
+    return JSON.parse(jsonText) as Blueprint;
 }

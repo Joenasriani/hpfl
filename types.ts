@@ -8,7 +8,7 @@ export interface AnalysisResult {
   missedOpportunities: string[];
   enhancementIdeas: string[];
   unforeseenFlaws: string[];
-  sources: { uri: string; title: string }[];
+  analysisLog: string;
 }
 
 export interface UltimateIdea {
@@ -39,15 +39,39 @@ export interface DIYStep {
   actionableItems: string[];
 }
 
+export interface Diagram {
+    title: string;
+    type: 'flowchart' | 'architecture' | 'userJourney';
+    svg: string;
+}
+
 export interface Blueprint {
-  keyFeatures: string[];
-  targetAudience: string;
-  monetizationStrategy: string[];
-  valueProposition: string;
-  userJourney: string;
-  techStack: string[];
-  goToMarketPlan: string[];
-  diyGuide: DIYStep[];
+  title: string;
+  abstract: string;
+  introduction: {
+      problemStatement: string;
+      proposedSolution: string;
+      valueProposition: string;
+  };
+  marketAnalysis: {
+      targetAudience: string;
+      marketSize: string;
+      competitiveLandscape: string;
+  };
+  productSpecification: {
+      keyFeatures: string[];
+      userJourneyDiagram: Diagram;
+      techStack: string[];
+      architectureDiagram: Diagram;
+  };
+  businessStrategy: {
+      monetizationStrategy: string[];
+      goToMarketPlan: string[];
+  };
+  implementationRoadmap: {
+      diyGuide: DIYStep[];
+  };
+  conclusion: string;
 }
 
 export enum AppStep {
