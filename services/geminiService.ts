@@ -1,4 +1,3 @@
-
 import { GoogleGenAI, Type } from "@google/genai";
 import type { AnalysisResult, HybridIdea, Blueprint, IdeaGenerationResult } from '../types';
 
@@ -83,11 +82,10 @@ const analysisSchema = {
     missedOpportunities: { type: Type.ARRAY, items: { type: Type.STRING } },
     enhancementIdeas: { type: Type.ARRAY, items: { type: Type.STRING } },
     unforeseenFlaws: { type: Type.ARRAY, items: { type: Type.STRING } },
-    analysisLog: { type: Type.STRING, description: 'A detailed log summarizing the step-by-step execution of the AI CSL analysis protocol, showing the findings for each step.' },
   },
   required: [
     'productName', 'introduction', 'manufacturingOrigin', 'strengths', 'flaws',
-    'humanImpact', 'missedOpportunities', 'enhancementIdeas', 'unforeseenFlaws', 'analysisLog'
+    'humanImpact', 'missedOpportunities', 'enhancementIdeas', 'unforeseenFlaws'
   ],
 };
 
@@ -191,21 +189,135 @@ const blueprintSchema = {
 };
 
 
-const analysisPrompt = `You are an expert product analyst. Your goal is to conduct a comprehensive analysis of the product: "{productName}".
-Based on your knowledge, provide a detailed analysis covering the following aspects. You must populate all fields in the provided JSON schema.
+const analysisPrompt = `Analyze the product provided by the user (minimum 2, maximum 5) using the Inventor-Analysis Instruction Protocol (V2.0) and the Genius Inventor Cognitive Expansion Layer (Section 16) exactly as defined below.
 
-- **productName**: The official name of the product.
-- **introduction**: A detailed introduction to the product. Explain what it is, its core purpose, and the primary problem it solves for its users.
-- **manufacturingOrigin**: Describe who invented or developed the product, the company responsible, and the year it was released.
-- **strengths**: List the key strengths of the product. Consider its design, functionality, user experience, and market position. Provide at least 3 distinct points.
-- **flaws**: List the significant weaknesses or flaws of the product. Consider technical limitations, usability issues, and common user complaints. Provide at least 3 distinct points.
-- **humanImpact**: Analyze the broader impact of the product on users and society. Discuss how it has changed behaviors, its cultural significance, and any unintended uses.
-- **missedOpportunities**: Identify potential features or design choices that were overlooked during its development. What could have made the product even better?
-- **enhancementIdeas**: Suggest specific, practical ideas for improving the current product. These should be enhancements, not entirely new products.
-- **unforeseenFlaws**: Discuss any negative externalities or long-term problems that have emerged since the product's release (e.g., environmental, ethical, social issues).
-- **analysisLog**: Provide a concise, step-by-step summary of your analysis process for our records. For example: "Step 1: Researched '{productName}' origin and core function. Step 2: Analyzed user reviews and technical specs to identify strengths and weaknesses. Step 3: Evaluated its broader human impact and identified missed opportunities. Step 4: Synthesized findings into enhancement ideas and unforeseen flaws."
+Your goal in this phase is not to generate new product ideas yet, but to conduct a deep, structured, and comparative analytical breakdown of all input products.
+Keep in mind throughout that this analysis will serve as the foundation for later creative synthesis in a separate stage.
 
-Respond ONLY with a valid JSON object matching the provided schema.
+──────────────────────────
+Execution Rules
+
+1. Input Range:
+ Analyze the products provided by the user (2–5 products). Treat each as an independent analytical object.
+
+
+2. Purpose Reminder:
+ This entire analysis aims to extract every possible insight, flaw, pattern, and principle from existing products so that they can later be recombined into new inventions.
+ Do not jump to ideation. Focus purely on structured understanding, decomposition, and comparison.
+
+
+3. Follow This Full Reasoning Flow:
+
+
+
+ Section 1 – Product Overview
+ Identify:
+ • Product name and category
+ • Inventor or originating organization
+ • Year of invention or release
+ • Geographic/market context
+
+ Section 2 – Purpose and Core Function
+ Define:
+ • Primary function or role
+ • The user problem it solves
+ • Key technological principle
+
+ Section 3 – Design Structure and Components
+ Break down architecture and layers:
+ • Physical (materials, mechanics)
+ • Digital (software, sensors, data systems)
+ • Experiential (UI, interaction, ergonomics)
+
+ Section 4 – Mechanism and Working Logic
+ Explain how it works from input → process → output → feedback.
+ Map internal dependencies and system flow.
+
+ Section 5 – Innovation Highlights
+ Document unique design choices, patents, or breakthroughs that distinguish it.
+
+ Section 6 – Flaws, Limitations, and Gaps
+ Identify weak points, usability issues, design compromises, inefficiencies, or maintenance problems.
+
+ Section 7 – User Experience and Behavioral Insights
+ Analyze emotional, cognitive, and ergonomic interaction.
+ Note how real-world users behave vs. intended use.
+
+ Section 8 – Market and Adoption Context
+ Summarize:
+ • Target users
+ • Market positioning and adoption timeline
+ • Cultural or symbolic value
+ • Competing alternatives
+
+ Section 9 – Comparative Cross-Product Matrix
+ Compare all analyzed products to find shared traits, complementary strengths, overlapping technologies, or opposing philosophies.
+ Identify where one product’s flaw aligns with another’s strength.
+
+ Section 10 – Extracted Design Principles
+ Abstract design heuristics, engineering patterns, and UX insights.
+ Distinguish between transferable principles and product-specific quirks.
+
+ Section 11 – Contextual and External Constraints
+ Analyze supply chain, regulatory, environmental, and ethical considerations that influenced design.
+
+ Section 12 – Historical and Developmental Background
+ Trace origin stories, prototype evolutions, and design pivots.
+
+ Section 13 – Cognitive Divergence Phase
+ Apply higher-order reasoning without ideating:
+ • Ask “why was it made this way?” repeatedly
+ • Identify contradictions and trade-offs
+ • Note where assumptions limit innovation
+ • Record potential inversions (what if the opposite were true?)
+
+ Section 14 – Traceability and Documentation
+ Record all findings in structured format (text or JSON).
+ Each observation must include its source and reasoning trace.
+
+ Section 15 – Reflection Summary
+ Summarize all extracted insights, hidden design logic, patterns, and contradictions across products.
+ No idea generation — only analytical synthesis.
+
+ Section 16 – Genius Inventor Cognitive Expansion Layer
+ Maintain awareness of the purpose of this analysis.
+ Keep curiosity active, continuously asking “what principle or pattern could this reveal for future recombination?”
+ Apply first-principles reasoning, systems thinking, and philosophical reflection throughout — but store these reflections for later ideation use.
+
+──────────────────────────
+Thinking Behavior:
+ • Treat flaws as data, not failures.
+ • Prioritize observation over speculation.
+ • Cross-validate every insight logically.
+ • Seek systemic causality behind each feature or flaw.
+ • Keep in mind this layer’s output will feed a later invention stage.
+
+──────────────────────────
+Output Requirements:
+ • Full structured breakdown for each analyzed product (Sections 1–15).
+ • One comparative analysis matrix (Section 9).
+ • Consolidated reflection summary (Section 15).
+ • All data formatted in structured text or JSON, including traceable reasoning for every insight.
+
+──────────────────────────
+Make sure you have done the following:
+
+“Analyze the products provided by the user (minimum 2, maximum 5) using and filtering exactly the complete Inventor-Analysis Instruction Protocol (V2.0) and Genius Inventor Cognitive Expansion Layer.
+Perform full structured analysis only — no idea generation.
+Keep in mind this is the analytical foundation for later creative synthesis.
+Output a fully traceable, comparative breakdown of each products, their design logic, flaws, innovations, and extracted principles.”
+
+Based on your comprehensive analysis of the product "{productName}", populate the provided JSON schema. Synthesize your findings from the 16-section protocol into the following fields.
+
+- productName: The exact name of the product.
+- introduction: A summary of Section 1 (Product Overview) and Section 2 (Purpose and Core Function).
+- manufacturingOrigin: A summary of the inventor/organization, year, and market context from Section 1.
+- strengths: Synthesize key points from Section 5 (Innovation Highlights) and positive aspects of Section 3 (Design) and Section 7 (User Experience).
+- flaws: Synthesize key points from Section 6 (Flaws, Limitations, Gaps).
+- humanImpact: Summarize Section 7 (User Experience) and the broader cultural/symbolic value from Section 8.
+- missedOpportunities: Extract insights from Section 13 (Cognitive Divergence), identifying where different design choices could have been made.
+- enhancementIdeas: Abstract potential improvements from your analysis of flaws (Section 6) and limitations. Do not invent new products, but suggest direct enhancements.
+- unforeseenFlaws: Based on Section 11 (External Constraints) and Section 13 (Cognitive Divergence), what are the broader, systemic issues or negative externalities that were likely not anticipated during its creation?
 `;
 
 export async function analyzeProduct(productName: string, logCallback?: (message: string) => void): Promise<AnalysisResult> {
@@ -214,7 +326,7 @@ export async function analyzeProduct(productName: string, logCallback?: (message
     logCallback?.(`Analyzing "${productName}": Querying Gemini Pro...`);
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-pro',
-      contents: [{ parts: [{ text: analysisPrompt.replace(/{productName}/g, productName) }] }],
+      contents: [{ parts: [{ text: analysisPrompt.replace('{productName}', productName) }] }],
       config: {
         responseMimeType: 'application/json',
         responseSchema: analysisSchema,
@@ -236,7 +348,7 @@ export async function analyzeProduct(productName: string, logCallback?: (message
     if (error instanceof Error && (error as any).response) {
       console.error("Raw response:", (error as any).response?.text);
     }
-    throw new Error(`Failed to analyze ${productName}. The request may have timed out due to complexity. Please try again or simplify the product names.`);
+    throw new Error(`Failed to analyze ${productName}. Please check the console for details.`);
   }
 }
 
@@ -245,10 +357,8 @@ export async function generateHybridIdeas(analyses: AnalysisResult[], existingId
     const analysesText = analyses.map(a => `
         Product: ${a.productName}
         Strengths: ${a.strengths.join(', ')}
-        Flaws & Weaknesses: ${a.flaws.join(', ')}
-        Unforeseen (Latent) Flaws: ${a.unforeseenFlaws.join(', ')}
-        User Behavior & Human Impact: ${a.humanImpact}
-        Design Logic & Missed Opportunities: ${a.missedOpportunities.join(', ')}
+        Flaws: ${a.flaws.join(', ')}
+        Enhancement Ideas: ${a.enhancementIdeas.join(', ')}
     `).join('\n---\n');
 
     const existingIdeasText = existingIdeas.length > 0 ? `
@@ -258,71 +368,25 @@ export async function generateHybridIdeas(analyses: AnalysisResult[], existingId
     ` : '';
     
     const prompt = `
-        You are an autonomous AI product strategist. Your goal is to use the provided Phase 1 analysis to generate the top 3 feasible, socially impactful, and market-ready product ideas.
+        You are an expert product inventor specializing in hybridizing existing technologies to create novel solutions.
         
-        You must follow the instructions below precisely. Your internal process should follow the AI Creative Strategy Log (AI CSL) protocol. Your final output must be a single JSON object conforming to the provided schema.
+        Your task is to generate 3 new, creative, and viable hybrid product ideas based on the provided analyses of multiple products.
         
         **Analysis Summary:**
         ${analysesText}
         
         ${existingIdeasText}
         
-        ---
-        **AI CSL Idea Generation Protocol (Phase 2)**
+        **Your Process (Thinking Process):**
+        1.  **Deconstruct & Recombine:** Identify the core strengths of each product. Find a compelling flaw in one product that can be solved by a core strength of another.
+        2.  **Synergize:** How can you merge the functionalities in a way that creates something genuinely new and more valuable than the sum of its parts? The goal is not just to staple two products together, but to create a seamless, integrated experience.
+        3.  **Define the "Why":** Clearly articulate the user problem or need this new hybrid product solves. Who is this for? Why would they choose it over existing solutions?
+        4.  **Name the Concept:** Give each idea a catchy, descriptive name.
         
-        **Goal:** Using Phase 1 analysis, autonomously generate the top 3 feasible, socially impactful, and market-ready product ideas, with full traceability in AI CSL.
-        
-        **Step-by-Step Instructions**
-        
-        **Step 1: Retrieve Phase 1 Insights**
-        - Automatically retrieve all insights from the Phase 1 Analysis Summary provided above.
-        - Extract insights from: Strengths, weaknesses, latent flaws, emergent uses and actual user behaviors, design patterns, trade-offs, heuristics, contextual constraints, market signals.
-        - Record all extracted insights in your internal AI CSL with source references.
-        
-        **Step 2: Identify Recombination Opportunities**
-        - Compare products using feature-matrix logic:
-          - Flaw from Product A + Solution from Product B
-          - Emergent Use from Product A + Technology from Product B
-          - Trade-off from Product A + Inverse Trade-off from Product B
-          - Constraint in Product A + Capability in Product B
-          - Component from Product A + UX Principle from Product B/C
-        - Log all recombination patterns in your internal AI CSL with traceability.
-        
-        **Step 3: Formulate Candidate Concepts**
-        - For each recombination, generate at least 3 candidate product ideas.
-        - Each candidate must include: Name / working title, Core concept / principle, Derived features or components (traceable to analysis), Target users / context, Humanitarian / societal impact, Market relevance / adoption potential, Novelty / differentiation, Feasibility / scalability, Potential challenges or risks.
-        - Record all candidate ideas in your internal AI CSL.
-        
-        **Step 4: Score Candidate Ideas**
-        - Score each candidate on:
-          - Technical Feasibility (1–10)
-          - Novelty / Differentiation (1–10)
-          - Humanitarian / Social Impact (1–10)
-          - Market Viability (1–10)
-          - Sustainability / Environmental Impact (1–10)
-          - Prototype Cost & Simplicity (1–10)
-        - Provide rationale for each score and log in your internal AI CSL.
-        
-        **Step 5: Select Top 3 Ideas**
-        - Select the 3 highest-scoring concepts as final ideas.
-        - Ensure: They are technically feasible, they address current human needs or market gaps, and they have market adoption and societal benefit potential.
-        - Record final selection, reasoning, and linked Phase 1 insights in your internal AI CSL.
-        
-        **Step 6: Prototype / Verification Planning (Internal)**
-        - For each of the top 3 ideas, define a minimal experiment or prototype outline.
-        - Log all prototype plans and verification steps in your internal AI CSL.
-        
-        ---
-        **Final Output Generation Instructions:**
-        
-        Based on your comprehensive CSL process, populate the provided JSON schema. Your internal log is for your process; the output MUST be this JSON.
-        
-        - **thinkingProcess**: Provide a detailed narrative of your process. Describe how you executed Steps 1-5 of the protocol: what insights you extracted, what recombination opportunities you found, how you formulated and scored candidates, and why you selected the final 3 ideas. This is a summary of your internal AI CSL for this phase.
-        - **ideas**: Provide an array with exactly 3 new hybrid ideas, synthesized from your CSL.
-          - **ideaName**: The name/working title from Step 3.
-          - **whatItIs**: The core concept and key derived features from Step 3.
-          - **reasoning**: Explain the core recombination logic from Step 2 that led to this idea and the reasoning for its selection from Step 5.
-          - **whyBetter**: Summarize its high scores from Step 4, focusing on novelty, market viability, and its humanitarian/social impact.
+        **Output Instructions:**
+        -   First, provide a detailed 'thinkingProcess' section explaining your creative strategy and how you connected the dots between the products to form your ideas. This should be a narrative of your inventive process.
+        -   Then, provide an 'ideas' array with exactly 3 new hybrid ideas. Each idea must be unique from any previously generated ideas.
+        -   For each idea, fill out the 'ideaName', 'whatItIs', 'reasoning' (explaining the connection to the original products), and 'whyBetter' (the value proposition).
         
         Respond ONLY with a valid JSON object matching the provided schema.
     `;
@@ -342,110 +406,102 @@ export async function generateHybridIdeas(analyses: AnalysisResult[], existingId
     return JSON.parse(jsonText) as IdeaGenerationResult;
 }
 
-export async function generateBlueprint(analyses: AnalysisResult[], idea: HybridIdea, logCallback?: (message: string) => void): Promise<Blueprint> {
+export async function generateBlueprint(idea: HybridIdea, logCallback?: (message: string) => void): Promise<Blueprint> {
     logCallback?.(`Generating Blueprint: Starting process for "${idea.ideaName}".`);
-
-    const analysesText = analyses.map(a => `
-        Product: ${a.productName}
-        Strengths: ${a.strengths.join(', ')}
-        Flaws & Weaknesses: ${a.flaws.join(', ')}
-        Unforeseen (Latent) Flaws: ${a.unforeseenFlaws.join(', ')}
-        User Behavior & Human Impact: ${a.humanImpact}
-        Design Logic & Missed Opportunities: ${a.missedOpportunities.join(', ')}
-    `).join('\n---\n');
-
     const prompt = `
-        You are an autonomous AI product strategist. Your goal is to use the provided analysis and the selected hybrid idea to generate a comprehensive, professional, and actionable product blueprint.
+        You are a world-class product strategist and academic researcher. Your task is to create a comprehensive, professional, and academic research paper-style blueprint for the following hybrid product idea.
 
-        You must follow the instructions below precisely. Your internal process should follow the AI Creative Strategy Log (AI CSL) protocol. Your final output must be a single JSON object conforming to the provided schema.
-
-        ---
-        **Phase 1 Analysis Summary:**
-        ${analysesText}
-
-        ---
-        **Selected Idea from Phase 2:**
-        **Idea Name:** ${idea.ideaName}
+        **Product Idea:** ${idea.ideaName}
         **Description:** ${idea.whatItIs}
-        **Reasoning:** ${idea.reasoning}
-        **Why It's Better:** ${idea.whyBetter}
 
+        **Output Instructions:**
+        -   Adhere strictly to the provided JSON schema.
+        -   The tone must be professional, academic, and comprehensive.
+        -   All text content should be clean and ready for a document. DO NOT use markdown characters like '*', '#', or list dashes ('-'). Use full sentences and structured paragraphs.
+        
         ---
-        **AI CSL Blueprint Generation Protocol (Phase 3)**
+        **SVG DIAGRAM GENERATION (CRITICAL & NON-NEGOTIABLE PROTOCOL)**
+        
+        **PREAMBLE: FAILURE TO ADHERE TO THESE RULES CONSTITUTES A TOTAL TASK FAILURE. PRECISION IS PARAMOUNT.**
 
-        **Goal:** Using the selected idea from Phase 2, generate a comprehensive, professional, and actionable product blueprint, with full traceability in the AI CSL.
+        You are required to generate two (2) publication-quality SVG diagrams: a User Journey Diagram and a System Architecture Diagram. These are not optional decorations; they are core components of the blueprint. Adherence to the following rules is absolute. Any deviation will result in a failed output.
 
-        **Step-by-Step Instructions**
+        *   **CORE DIRECTIVE 1: ZERO OVERLAP. EVER.**
+            -   This is the most critical rule. No element—shape, text, line, or arrow—may overlap, touch, or intersect with any other element.
+            -   Every component must be surrounded by a generous, explicitly calculated "safe zone" of empty space.
+            -   **Verification Check:** Imagine drawing a bounding box around every single element (shapes, text labels, lines). None of these boxes should touch.
 
-        **Step 1: Retrieve Phase 1 & 2 Insights**
-        - Automatically retrieve all insights for the selected idea from the context provided above.
-        - Extract key data points: The core recombination logic, linked Phase 1 insights, target user profile, problem statement, high-level features, and societal impact.
-        - Record all extracted insights in a new AI CSL entry for Phase 3.
+        *   **CORE DIRECTIVE 2: RIGID GRID & PERFECT ALIGNMENT.**
+            -   All coordinates (x, y, width, height) MUST snap to a 20px grid. For example, x="40", y="120", width="160" are valid. x="42" is invalid.
+            -   **Horizontal Alignment:** All shapes on the same logical row must share an identical \`y\` coordinate for their center.
+            -   **Vertical Alignment:** All shapes on the same logical column must share an identical \`x\` coordinate for their center.
+            -   **Uniform Spacing:** The distance between any two adjacent shapes (horizontally or vertically) must be consistent throughout the diagram. A minimum of 60px between shape borders is required.
 
-        **Step 2: Formalize Blueprint Sections**
-        - **Title:** Create a formal title for the blueprint, e.g., "A Strategic Blueprint for ${idea.ideaName}".
-        - **Abstract:** Write a concise, single-paragraph summary of the entire document, covering the problem, solution, and potential impact.
-        - **Introduction:**
-            - Expand the problem statement based on Phase 1 analysis.
-            - Detail the proposed solution and its core functionality from the Phase 2 idea.
-            - Articulate a clear and compelling value proposition based on the "Why It's Better" section.
-        - Log each section's generation process in your internal AI CSL.
+        *   **CORE DIRECTIVE 3: IMMACULATE TEXT & PADDING.**
+            -   Text must be perfectly centered, both horizontally and vertically, within its containing shape. Use \`text-anchor="middle"\` and \`dominant-baseline="middle"\`.
+            -   A mandatory, non-negotiable internal padding of at least 15px must exist between the text's bounding box and the container shape's edge on all four sides.
+            -   For multi-line text, you MUST use <tspan> elements. Each <tspan> should be positioned relative to the shape's center using \`x\` and \`dy\` attributes. Calculate line breaks logically to avoid awkward single-word lines (orphans).
 
-        **Step 3: Conduct Market & Business Analysis**
-        - Based on Phase 1 & 2 data, research and define:
-            - **Target Audience Persona:** A detailed description of the ideal user.
-            - **Market Size & Potential:** High-level analysis of viability and growth.
-            - **Competitive Landscape:** Existing competitors and differentiators, drawing from Phase 1.
-            - **Monetization Strategy:** Propose viable revenue models (e.g., subscription, one-time purchase).
-            - **Go-To-Market Plan:** Initial steps for launch and user acquisition.
-        - Log all research, reasoning, and sources in your internal AI CSL.
+        *   **CORE DIRECTIVE 4: STANDARDIZED & CLEAN CONNECTORS.**
+            -   Connectors are exclusively straight, perfectly horizontal or vertical lines. NO diagonal or curved lines are permitted.
+            -   Lines must connect to the exact midpoint of a shape's edge (top, bottom, left, or right). Do not connect to corners.
+            -   Turns must be clean, 90-degree angles formed by two separate line segments.
+            -   **Routing:** Connector lines MUST NOT cross through any shape or text. They must be routed around all other elements. Connector lines should also not cross each other unless absolutely unavoidable for complex diagrams.
 
-        **Step 4: Detail Product & Technical Specifications**
-        - **Key Features (MVP):** Outline the 3-5 most critical features for a Minimum Viable Product.
-        - **Technology Stack:** Suggest a modern, scalable tech stack suitable for building the product.
-        - **Generate Diagrams:**
-            - Create a **User Journey Diagram** (flowchart) mapping the user's experience.
-            - Create a **System Architecture Diagram** showing main components (e.g., Frontend, Backend, Database).
-        - **MANDATORY SVG Design & Execution Protocol:**
-            Adherence to the Design Rules is mandatory and non-negotiable.
-            
-            **Design Rules (The "Checklist")**
-            You must adhere to every rule listed below:
-            1. **Element Separation (No Overlap):** All elements (arrows, connectors, shapes, icons) must be clearly separated. No element may overlap or cross over any text or any other line.
-            2. **Text Containment & Padding:** All text inside a shape (e.g., a box or circle) must be fully contained within that shape's boundaries. There must be a clear internal margin (padding) so that no part of any letter touches the shape's outline.
-            3. **Text Alignment:** All text within shapes must be centered, both horizontally and vertically.
-            4. **Layout & Organization:** The entire diagram must be neat, well-organized, and logically structured. Elements must be aligned and spaced consistently for an uncluttered, professional appearance.
-            5. **Arrow/Connector Placement:** All connectors (arrows) must point clearly from one shape's outline to another shape's outline. They should not float vaguely or overlap the text within a shape.
-            6. **Multi-line Text Handling:** To prevent text from jumbling and overlapping, you MUST handle multi-line text correctly. For any text that needs to wrap inside a shape, break it into separate lines. Each line MUST be its own \`<tspan>\` element within the parent \`<text>\` tag. Use \`dy="1.2em"\` on subsequent \`<tspan>\` elements to create vertical line breaks. This is mandatory. Example: \`<text x="100" y="50" text-anchor="middle"><tspan>First Line</tspan><tspan x="100" dy="1.2em">Second Line</tspan></text>\`.
-            
-            **Execution Process**
-            Your operational flow for generating each diagram must be as follows:
-            1. **Generate Draft:** First, you will generate a draft of the requested diagram.
-            2. **STOP (Internal Verification):** Before finalizing the SVG, you must stop and enter a verification phase.
-            3. **Perform Quality Check:** You will internally review your draft against every single rule in the "Design Rules" checklist above.
-            4. **Self-Correct:**
-                - If the draft fails even one rule (e.g., text is not centered, text touches a line, an arrow overlaps another element), you must discard that draft.
-                - You will then regenerate the diagram from scratch, focusing on correcting the specific failure.
-            5. **Repeat Loop:** You will repeat this "Generate -> Check -> Self-Correct" loop as many times as necessary until you have a final version that passes 100% of the Design Rules.
-            6. **Final Output:** Only include the final, 100% compliant SVG string in the JSON output. Do not describe this process or mention the drafts; just provide the finished, perfect result.
-        - Log diagram generation logic and component choices in your internal AI CSL.
+        *   **CORE DIRECTIVE 5: PROFESSIONAL & CONSISTENT STYLING.**
+            -   You must use a <defs><style> block to define CSS classes. This is not optional. The SVG body should only contain class attributes for styling.
+            -   **CSS Specification (Use this exactly):**
+                \`\`\`css
+                .container { background-color: transparent; }
+                .box { fill: #1e293b; stroke: #475569; stroke-width: 2px; rx: 8px; }
+                .box-text { font-family: 'Inter', sans-serif; font-size: 14px; fill: #cbd5e1; text-anchor: middle; dominant-baseline: middle; }
+                .arrow-line { fill: none; stroke: #22d3ee; stroke-width: 2px; marker-end: url(#arrowhead); }
+                .arrow-head { fill: #22d3ee; }
+                .tier-label { font-family: 'Inter', sans-serif; font-size: 12px; fill: #94a3b8; text-anchor: middle; }
+                \`\`\`
+            -   **Arrowhead Definition:** You must define a marker for arrowheads inside <defs>. Example: <marker id="arrowhead" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" class="arrow-head" /></marker>
 
-        **Step 5: Create Implementation Roadmap**
-        - Create a high-level, 4-step DIY guide.
-        - Each step must include a title, description, and actionable items for a small team or individual.
-        - Log the reasoning for each step in your internal AI CSL.
+        *   **CORE DIRECTIVE 6: OPTIMIZED CANVAS & VIEWBOX.**
+            -   The final SVG must have a \`viewBox\` attribute that tightly frames the entire diagram.
+            -   Calculate the total width and height of all diagram elements, then add a consistent margin (e.g., 20px) on all sides to determine the \`viewBox\` dimensions. The diagram must appear centered and well-proportioned, not crammed or excessively sparse.
 
-        **Step 6: Formulate Conclusion**
-        - Write a concluding summary that reinforces the product's potential and outlines future outlook.
-        - Log conclusion in your internal AI CSL.
-
+        *   **CORE DIRECTIVE 7: FINAL SELF-CORRECTION AND VALIDATION STEP.**
+            -   Before finalizing the SVG string, perform a mental validation pass.
+            -   Review every element against every rule listed above.
+            -   Check for overlaps: Is there *any* element that is too close to another?
+            -   Check for alignment: Are all shapes in the same row/column perfectly aligned?
+            -   Check for spacing: Is the spacing between all elements uniform and generous?
+            -   Check text: Is it perfectly centered with sufficient padding?
+            -   Check connectors: Are they straight, right-angled, and cleanly routed?
+            -   This is your final chance to fix errors. The output must be perfect.
         ---
-        **Final Output Generation Instructions:**
+        **Blueprint Structure:**
+        -   **title:** A formal title for the product blueprint. E.g., "A Blueprint for ${idea.ideaName}: A Hybrid Solution for...".
+        -   **abstract:** A brief, one-paragraph summary of the entire document.
+        -   **introduction:**
+            -   **problemStatement:** Clearly define the user problem.
+            -   **proposedSolution:** Describe your product as the solution.
+            -   **valueProposition:** State the unique value.
+        -   **marketAnalysis:**
+            -   **targetAudience:** Describe the primary user persona.
+            -   **marketSize:** Provide a brief analysis of the market potential.
+            -   **competitiveLandscape:** Discuss existing competitors and alternatives.
+        -   **productSpecification:**
+            -   **keyFeatures:** List the 3-5 most critical MVP features.
+            -   **userJourneyDiagram:** An SVG flowchart illustrating the user's path from discovery to achieving their goal.
+            -   **techStack:** Suggest a modern, scalable tech stack.
+            -   **architectureDiagram:** An SVG diagram showing the high-level system components and their interactions (e.g., Frontend, Backend, Database, APIs).
+        -   **businessStrategy:**
+            -   **monetizationStrategy:** List potential revenue models.
+            -   **goToMarketPlan:** List initial steps for launch and user acquisition.
+        -   **implementationRoadmap:**
+            -   **diyGuide:** A 4-step, high-level guide for a small team to start building.
+        -   **conclusion:** A summary of the product's potential and future outlook.
 
-        Based on your comprehensive CSL process, populate the provided JSON schema. Your internal log is for your process; the output MUST be this JSON. All text must be in a professional, academic tone. DO NOT use markdown characters like '*', '#', or '-'.
+        Respond ONLY with a valid JSON object matching the provided schema.
     `;
     
-    logCallback?.(`Generating Blueprint: Querying Gemini Pro for "${idea.ideaName}"...`);
+    logCallback?.(`Generating Blueprint: Querying Gemini Pro...`);
     const response = await ai.models.generateContent({
         model: 'gemini-2.5-pro',
         contents: [{ parts: [{ text: prompt }] }],
@@ -455,7 +511,29 @@ export async function generateBlueprint(analyses: AnalysisResult[], idea: Hybrid
         },
     });
 
-    logCallback?.(`Generating Blueprint: Received response for "${idea.ideaName}". Parsing...`);
+    logCallback?.(`Generating Blueprint: Received response for "${idea.ideaName}". Parsing JSON.`);
     const jsonText = extractJson(response.text);
     return JSON.parse(jsonText) as Blueprint;
+}
+
+
+export async function paraphraseText(text: string, logCallback?: (message: string) => void): Promise<string> {
+    logCallback?.('Paraphrasing: Reformatting AI thinking process for clarity.');
+    const prompt = `
+        Paraphrase the following text to be more engaging, clear, and structured for a presentation. 
+        Use markdown for formatting (headings, lists). Avoid jargon where possible.
+        
+        Original Text:
+        ---
+        ${text}
+        ---
+    `;
+    
+    const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: [{ parts: [{ text: prompt }] }],
+    });
+    
+    logCallback?.('Paraphrasing: Complete.');
+    return response.text;
 }

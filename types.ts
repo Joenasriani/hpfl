@@ -8,7 +8,6 @@ export interface AnalysisResult {
   missedOpportunities: string[];
   enhancementIdeas: string[];
   unforeseenFlaws: string[];
-  analysisLog: string;
 }
 
 export interface UltimateIdea {
