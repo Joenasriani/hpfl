@@ -149,7 +149,7 @@ const IdeaCard: React.FC<{ idea: HybridIdea; index: number; isSelected: boolean;
                     <div className="pt-4">
                         <button 
                             onClick={onSelect}
-                            className={`w-full font-bold py-2 px-4 rounded-lg transition-colors duration-300 ${isSelected ? 'bg-purple-600 text-white cursor-default' : 'bg-slate-700 hover:bg-purple-600'}`}
+                            className={`w-full font-bold py-2 px-4 rounded-lg transition-colors duration-300 ${isSelected ? 'bg-purple-600 text-white' : 'bg-slate-700 hover:bg-purple-600'}`}
                         >
                             {isSelected ? 'Selected' : 'Select Idea'}
                         </button>
@@ -181,7 +181,7 @@ const FormattedCSL: React.FC<{ log: string }> = ({ log }) => {
     );
 };
 
-const BlueprintCard: React.FC<{ blueprint: Blueprint; isOpen: boolean; onToggle: () => void }> = ({ blueprint, isOpen, onToggle }) => {
+const BlueprintCard: React.FC<{ blueprint: Blueprint; isOpen: boolean; onToggle: () => void; onExport: () => void; }> = ({ blueprint, isOpen, onToggle, onExport }) => {
     const renderList = (items: string[]) => (
         <ul className="list-disc list-inside space-y-1 text-gray-300">
             {items.map((item, i) => <li key={i}>{item}</li>)}
@@ -207,64 +207,69 @@ const BlueprintCard: React.FC<{ blueprint: Blueprint; isOpen: boolean; onToggle:
                 <ChevronIcon isOpen={isOpen} />
             </button>
             {isOpen && (
-                <div className="p-6 space-y-8 border-t border-slate-700 animate-fade-in-down">
-                    <section>
-                        <h3 className="text-xl font-bold text-cyan-400 border-b border-cyan-500/30 pb-2 mb-3">Abstract</h3>
-                        <p className="text-gray-300">{blueprint.abstract}</p>
-                    </section>
-                    
-                    <section>
-                        <h3 className="text-xl font-bold text-cyan-400 border-b border-cyan-500/30 pb-2 mb-3">1. Introduction</h3>
-                        <div className="space-y-3">
-                            <div><h4 className="font-semibold text-fuchsia-400">1.1 Problem Statement</h4><p>{blueprint.introduction.problemStatement}</p></div>
-                            <div><h4 className="font-semibold text-fuchsia-400">1.2 Proposed Solution</h4><p>{blueprint.introduction.proposedSolution}</p></div>
-                            <div><h4 className="font-semibold text-fuchsia-400">1.3 Value Proposition</h4><p>{blueprint.introduction.valueProposition}</p></div>
-                        </div>
-                    </section>
-
-                     <section>
-                        <h3 className="text-xl font-bold text-cyan-400 border-b border-cyan-500/30 pb-2 mb-3">2. Market Analysis</h3>
-                        <div className="space-y-3">
-                            <div><h4 className="font-semibold text-fuchsia-400">2.1 Target Audience</h4><p>{blueprint.marketAnalysis.targetAudience}</p></div>
-                            <div><h4 className="font-semibold text-fuchsia-400">2.2 Market Size & Potential</h4><p>{blueprint.marketAnalysis.marketSize}</p></div>
-                            <div><h4 className="font-semibold text-fuchsia-400">2.3 Competitive Landscape</h4><p>{blueprint.marketAnalysis.competitiveLandscape}</p></div>
-                        </div>
-                    </section>
-                    
-                    <section>
-                        <h3 className="text-xl font-bold text-cyan-400 border-b border-cyan-500/30 pb-2 mb-3">3. Product Specification</h3>
-                         <div className="space-y-4">
-                            <div><h4 className="font-semibold text-fuchsia-400 mb-2">3.1 Key Features (MVP)</h4>{renderList(blueprint.productSpecification.keyFeatures)}</div>
-                            <div><h4 className="font-semibold text-fuchsia-400 mb-2">3.2 Technology Stack</h4>{renderList(blueprint.productSpecification.techStack)}</div>
-                            <div className="p-4 bg-slate-900/50 rounded-lg">
-                                <h4 className="font-semibold text-fuchsia-400 mb-2 text-center">3.3 {blueprint.productSpecification.userJourneyDiagram.title}</h4>
-                                <div dangerouslySetInnerHTML={{ __html: blueprint.productSpecification.userJourneyDiagram.svg }} />
+                <>
+                    <div className="p-6 space-y-8 border-t border-slate-700 animate-fade-in-down">
+                        <section>
+                            <h3 className="text-xl font-bold text-cyan-400 border-b border-cyan-500/30 pb-2 mb-3">Abstract</h3>
+                            <p className="text-gray-300">{blueprint.abstract}</p>
+                        </section>
+                        
+                        <section>
+                            <h3 className="text-xl font-bold text-cyan-400 border-b border-cyan-500/30 pb-2 mb-3">1. Introduction</h3>
+                            <div className="space-y-3">
+                                <div><h4 className="font-semibold text-fuchsia-400">1.1 Problem Statement</h4><p>{blueprint.introduction.problemStatement}</p></div>
+                                <div><h4 className="font-semibold text-fuchsia-400">1.2 Proposed Solution</h4><p>{blueprint.introduction.proposedSolution}</p></div>
+                                <div><h4 className="font-semibold text-fuchsia-400">1.3 Value Proposition</h4><p>{blueprint.introduction.valueProposition}</p></div>
                             </div>
-                            <div className="p-4 bg-slate-900/50 rounded-lg">
-                                <h4 className="font-semibold text-fuchsia-400 mb-2 text-center">3.4 {blueprint.productSpecification.architectureDiagram.title}</h4>
-                                <div dangerouslySetInnerHTML={{ __html: blueprint.productSpecification.architectureDiagram.svg }} />
+                        </section>
+
+                         <section>
+                            <h3 className="text-xl font-bold text-cyan-400 border-b border-cyan-500/30 pb-2 mb-3">2. Market Analysis</h3>
+                            <div className="space-y-3">
+                                <div><h4 className="font-semibold text-fuchsia-400">2.1 Target Audience</h4><p>{blueprint.marketAnalysis.targetAudience}</p></div>
+                                <div><h4 className="font-semibold text-fuchsia-400">2.2 Market Size & Potential</h4><p>{blueprint.marketAnalysis.marketSize}</p></div>
+                                <div><h4 className="font-semibold text-fuchsia-400">2.3 Competitive Landscape</h4><p>{blueprint.marketAnalysis.competitiveLandscape}</p></div>
                             </div>
-                        </div>
-                    </section>
+                        </section>
+                        
+                        <section>
+                            <h3 className="text-xl font-bold text-cyan-400 border-b border-cyan-500/30 pb-2 mb-3">3. Product Specification</h3>
+                             <div className="space-y-4">
+                                <div><h4 className="font-semibold text-fuchsia-400 mb-2">3.1 Key Features (MVP)</h4>{renderList(blueprint.productSpecification.keyFeatures)}</div>
+                                <div><h4 className="font-semibold text-fuchsia-400 mb-2">3.2 Technology Stack</h4>{renderList(blueprint.productSpecification.techStack)}</div>
+                                <div className="p-4 bg-slate-900/50 rounded-lg">
+                                    <h4 className="font-semibold text-fuchsia-400 mb-2 text-center">3.3 {blueprint.productSpecification.userJourneyDiagram.title}</h4>
+                                    <div dangerouslySetInnerHTML={{ __html: blueprint.productSpecification.userJourneyDiagram.svg }} />
+                                </div>
+                                <div className="p-4 bg-slate-900/50 rounded-lg">
+                                    <h4 className="font-semibold text-fuchsia-400 mb-2 text-center">3.4 {blueprint.productSpecification.architectureDiagram.title}</h4>
+                                    <div dangerouslySetInnerHTML={{ __html: blueprint.productSpecification.architectureDiagram.svg }} />
+                                </div>
+                            </div>
+                        </section>
 
-                    <section>
-                        <h3 className="text-xl font-bold text-cyan-400 border-b border-cyan-500/30 pb-2 mb-3">4. Business Strategy</h3>
-                        <div className="space-y-3">
-                            <div><h4 className="font-semibold text-fuchsia-400 mb-2">4.1 Monetization Strategy</h4>{renderList(blueprint.businessStrategy.monetizationStrategy)}</div>
-                            <div><h4 className="font-semibold text-fuchsia-400 mb-2">4.2 Go-To-Market Plan</h4>{renderList(blueprint.businessStrategy.goToMarketPlan)}</div>
-                        </div>
-                    </section>
+                        <section>
+                            <h3 className="text-xl font-bold text-cyan-400 border-b border-cyan-500/30 pb-2 mb-3">4. Business Strategy</h3>
+                            <div className="space-y-3">
+                                <div><h4 className="font-semibold text-fuchsia-400 mb-2">4.1 Monetization Strategy</h4>{renderList(blueprint.businessStrategy.monetizationStrategy)}</div>
+                                <div><h4 className="font-semibold text-fuchsia-400 mb-2">4.2 Go-To-Market Plan</h4>{renderList(blueprint.businessStrategy.goToMarketPlan)}</div>
+                            </div>
+                        </section>
 
-                    <section>
-                         <h3 className="text-xl font-bold text-cyan-400 border-b border-cyan-500/30 pb-2 mb-3">5. Implementation Roadmap</h3>
-                         {renderDIY(blueprint.implementationRoadmap.diyGuide)}
-                    </section>
-                    
-                    <section>
-                        <h3 className="text-xl font-bold text-cyan-400 border-b border-cyan-500/30 pb-2 mb-3">6. Conclusion</h3>
-                        <p>{blueprint.conclusion}</p>
-                    </section>
-                </div>
+                        <section>
+                             <h3 className="text-xl font-bold text-cyan-400 border-b border-cyan-500/30 pb-2 mb-3">5. Implementation Roadmap</h3>
+                             {renderDIY(blueprint.implementationRoadmap.diyGuide)}
+                        </section>
+                        
+                        <section>
+                            <h3 className="text-xl font-bold text-cyan-400 border-b border-cyan-500/30 pb-2 mb-3">6. Conclusion</h3>
+                            <p>{blueprint.conclusion}</p>
+                        </section>
+                    </div>
+                     <div className="p-4 border-t border-slate-700 bg-slate-900/50">
+                        <SecondaryButton onClick={onExport} disabled={false}>Export Blueprint</SecondaryButton>
+                    </div>
+                </>
             )}
         </div>
     );
@@ -276,14 +281,14 @@ const App: React.FC = () => {
     const [analyses, setAnalyses] = useState<AnalysisResult[] | null>(null);
     const [allIdeas, setAllIdeas] = useState<HybridIdea[] | null>(null);
     const [aiLog, setAiLog] = useState<string | null>(null);
-    const [selectedIdea, setSelectedIdea] = useState<HybridIdea | null>(null);
-    const [blueprint, setBlueprint] = useState<Blueprint | null>(null);
+    const [selectedIdeas, setSelectedIdeas] = useState<Set<string>>(new Set());
+    const [blueprints, setBlueprints] = useState<Map<string, Blueprint>>(new Map());
     const [step, setStep] = useState<AppStep>(AppStep.INITIAL);
     const [error, setError] = useState<string | null>(null);
     
     const [openAnalyses, setOpenAnalyses] = useState<Set<number>>(new Set());
     const [openIdeas, setOpenIdeas] = useState<Set<number>>(new Set());
-    const [isBlueprintOpen, setIsBlueprintOpen] = useState(true);
+    const [openBlueprints, setOpenBlueprints] = useState<Set<string>>(new Set());
 
     const [focusedInput, setFocusedInput] = useState<HTMLInputElement | null>(null);
     const [currentLoadingMessage, setCurrentLoadingMessage] = useState('Thinking...');
@@ -433,20 +438,44 @@ const App: React.FC = () => {
     }, [analyses]);
 
     const handleGenerateBlueprint = useCallback(async () => {
-        if (!selectedIdea || !analyses) return;
+        if (selectedIdeas.size === 0 || !analyses || !allIdeas) return;
         setError(null);
         setStep(AppStep.GENERATING_BLUEPRINT);
         try {
-            const newBlueprint = await generateBlueprint(analyses, selectedIdea);
-            setBlueprint(newBlueprint);
-            setIsBlueprintOpen(true);
+            const ideasToProcess = Array.from(selectedIdeas)
+                .map(ideaName => allIdeas.find(idea => idea.ideaName === ideaName))
+                .filter((idea): idea is HybridIdea => !!idea);
+            
+            const newBlueprintPromises = ideasToProcess
+                .filter(idea => !blueprints.has(idea.ideaName))
+                .map(idea => generateBlueprint(analyses, idea).then(bp => ({ ideaName: idea.ideaName, blueprint: bp })));
+
+            if (newBlueprintPromises.length > 0) {
+                const newResults = await Promise.all(newBlueprintPromises);
+                
+                setBlueprints(prev => {
+                    const newMap = new Map(prev);
+                    newResults.forEach(({ ideaName, blueprint }) => {
+                        newMap.set(ideaName, blueprint);
+                    });
+                    return newMap;
+                });
+
+                setOpenBlueprints(prev => {
+                    const newSet = new Set(prev);
+                    newResults.forEach(({ blueprint }) => newSet.add(blueprint.title));
+                    return newSet;
+                });
+            }
+
             setStep(AppStep.BLUEPRINT_GENERATED);
+
         } catch (err) {
             const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred';
             setError(errorMessage);
             setStep(AppStep.IDEAS_GENERATED);
         }
-    }, [selectedIdea, analyses]);
+    }, [selectedIdeas, analyses, allIdeas, blueprints]);
     
     const handleGenerateMoreIdeas = useCallback(async () => {
         if (!analyses || !allIdeas) return;
@@ -466,11 +495,34 @@ const App: React.FC = () => {
     }, [analyses, allIdeas, step]);
     
     const handleSelectIdea = (idea: HybridIdea) => {
-        setSelectedIdea(idea);
-        if (blueprint) {
-            setBlueprint(null);
-            setStep(AppStep.IDEAS_GENERATED);
-        }
+        setSelectedIdeas(prev => {
+            const newSet = new Set(prev);
+            if (newSet.has(idea.ideaName)) {
+                newSet.delete(idea.ideaName);
+            } else {
+                newSet.add(idea.ideaName);
+            }
+            return newSet;
+        });
+
+        setBlueprints(prev => {
+            const newMap = new Map(prev);
+            if (prev.has(idea.ideaName)) {
+                const blueprintToRemove = newMap.get(idea.ideaName);
+                if (blueprintToRemove) {
+                    setOpenBlueprints(prevOpen => {
+                        const newOpenSet = new Set(prevOpen);
+                        newOpenSet.delete(blueprintToRemove.title);
+                        return newOpenSet;
+                    });
+                }
+                newMap.delete(idea.ideaName);
+            }
+            if (newMap.size === 0 && step === AppStep.BLUEPRINT_GENERATED) {
+                 setStep(AppStep.IDEAS_GENERATED);
+            }
+            return newMap;
+        });
     };
 
     const toggleAnalysis = (index: number) => {
@@ -497,22 +549,34 @@ const App: React.FC = () => {
         });
     };
     
+     const toggleBlueprint = (title: string) => {
+        setOpenBlueprints(prev => {
+            const newSet = new Set(prev);
+            if (newSet.has(title)) {
+                newSet.delete(title);
+            } else {
+                newSet.add(title);
+            }
+            return newSet;
+        });
+    };
+    
     const handleStartOver = () => {
         setProducts(['', '']);
         setAnalyses(null);
         setAllIdeas(null);
         setAiLog(null);
-        setSelectedIdea(null);
-        setBlueprint(null);
+        setSelectedIdeas(new Set());
+        setBlueprints(new Map());
         setStep(AppStep.INITIAL);
         setError(null);
         setOpenAnalyses(new Set());
         setOpenIdeas(new Set());
-        setIsBlueprintOpen(true);
+        setOpenBlueprints(new Set());
     };
 
-    const handleExportBlueprint = useCallback(() => {
-        if (!selectedIdea || !blueprint) return;
+    const handleExportBlueprint = useCallback((blueprintToExport: Blueprint) => {
+        if (!blueprintToExport) return;
 
         const listToHtml = (items: string[]) => `<ul>${items.map(item => `<li>${item}</li>`).join('')}</ul>`;
         const diyToHtml = (steps: DIYStep[]) => steps.map(step => `
@@ -551,53 +615,53 @@ const App: React.FC = () => {
         `;
 
         const htmlContent = `
-            <h1>${blueprint.title}</h1>
+            <h1>${blueprintToExport.title}</h1>
 
             <h2>Abstract</h2>
-            <p>${blueprint.abstract}</p>
+            <p>${blueprintToExport.abstract}</p>
 
             <h2>1. Introduction</h2>
             <h3>1.1 Problem Statement</h3>
-            <p>${blueprint.introduction.problemStatement}</p>
+            <p>${blueprintToExport.introduction.problemStatement}</p>
             <h3>1.2 Proposed Solution</h3>
-            <p>${blueprint.introduction.proposedSolution}</p>
+            <p>${blueprintToExport.introduction.proposedSolution}</p>
             <h3>1.3 Value Proposition</h3>
-            <p>${blueprint.introduction.valueProposition}</p>
+            <p>${blueprintToExport.introduction.valueProposition}</p>
 
             <h2>2. Market Analysis</h2>
             <h3>2.1 Target Audience</h3>
-            <p>${blueprint.marketAnalysis.targetAudience}</p>
+            <p>${blueprintToExport.marketAnalysis.targetAudience}</p>
             <h3>2.2 Market Size & Potential</h3>
-            <p>${blueprint.marketAnalysis.marketSize}</p>
+            <p>${blueprintToExport.marketAnalysis.marketSize}</p>
             <h3>2.3 Competitive Landscape</h3>
-            <p>${blueprint.marketAnalysis.competitiveLandscape}</p>
+            <p>${blueprintToExport.marketAnalysis.competitiveLandscape}</p>
 
             <h2>3. Product Specification</h2>
             <h3>3.1 Key Features (MVP)</h3>
-            ${listToHtml(blueprint.productSpecification.keyFeatures)}
+            ${listToHtml(blueprintToExport.productSpecification.keyFeatures)}
             <h3>3.2 Technology Stack</h3>
-            ${listToHtml(blueprint.productSpecification.techStack)}
+            ${listToHtml(blueprintToExport.productSpecification.techStack)}
             <div class="diagram-container">
                 <h3>3.3 User Journey Diagram</h3>
-                ${blueprint.productSpecification.userJourneyDiagram.svg}
+                ${blueprintToExport.productSpecification.userJourneyDiagram.svg}
             </div>
              <div class="diagram-container">
                 <h3>3.4 System Architecture Diagram</h3>
-                ${blueprint.productSpecification.architectureDiagram.svg}
+                ${blueprintToExport.productSpecification.architectureDiagram.svg}
             </div>
 
             <h2>4. Business Strategy</h2>
             <h3>4.1 Monetization Strategy</h3>
-            ${listToHtml(blueprint.businessStrategy.monetizationStrategy)}
+            ${listToHtml(blueprintToExport.businessStrategy.monetizationStrategy)}
             <h3>4.2 Go-To-Market Plan</h3>
-            ${listToHtml(blueprint.businessStrategy.goToMarketPlan)}
+            ${listToHtml(blueprintToExport.businessStrategy.goToMarketPlan)}
             
             <h2>5. Implementation Roadmap</h2>
             <h3>5.1 DIY Step-by-Step Guide</h3>
-            ${diyToHtml(blueprint.implementationRoadmap.diyGuide)}
+            ${diyToHtml(blueprintToExport.implementationRoadmap.diyGuide)}
 
             <h2>6. Conclusion</h2>
-            <p>${blueprint.conclusion}</p>
+            <p>${blueprintToExport.conclusion}</p>
         `;
 
         const printWindow = window.open('', '_blank');
@@ -606,7 +670,7 @@ const App: React.FC = () => {
                 <!DOCTYPE html>
                 <html>
                     <head>
-                        <title>${blueprint.title} - Blueprint</title>
+                        <title>${blueprintToExport.title} - Blueprint</title>
                         ${styles}
                     </head>
                     <body>
@@ -622,7 +686,16 @@ const App: React.FC = () => {
         } else {
             alert('Could not open print window. Please check your pop-up blocker settings.');
         }
-    }, [blueprint, selectedIdea]);
+    }, []);
+    
+    const getBlueprintButtonText = () => {
+        if (selectedIdeas.size === 0) return 'Select an Idea to Continue';
+        if (selectedIdeas.size === 1) {
+            const ideaName = Array.from(selectedIdeas)[0];
+            return `Generate Blueprint for "${ideaName}"`;
+        }
+        return `Generate Blueprints for ${selectedIdeas.size} selected ideas`;
+    };
 
     return (
         <div className="min-h-screen bg-slate-900 text-gray-200 flex flex-col items-center p-4 sm:p-6 lg:p-8 font-['Inter',_sans-serif]">
@@ -731,7 +804,7 @@ const App: React.FC = () => {
                                         key={index}
                                         idea={idea}
                                         index={index}
-                                        isSelected={selectedIdea?.ideaName === idea.ideaName}
+                                        isSelected={selectedIdeas.has(idea.ideaName)}
                                         onSelect={() => handleSelectIdea(idea)}
                                         isOpen={!openIdeas.has(index)}
                                         onToggle={() => toggleIdea(index)}
@@ -742,8 +815,8 @@ const App: React.FC = () => {
                                 <SecondaryButton onClick={handleGenerateMoreIdeas} disabled={isLoading}>
                                     Generate 3 More Ideas
                                 </SecondaryButton>
-                                <PrimaryButton onClick={handleGenerateBlueprint} disabled={!selectedIdea || isLoading}>
-                                    {selectedIdea ? `Generate Blueprint for "${selectedIdea.ideaName}"` : 'Select an Idea to Continue'}
+                                <PrimaryButton onClick={handleGenerateBlueprint} disabled={selectedIdeas.size === 0 || isLoading}>
+                                    {getBlueprintButtonText()}
                                 </PrimaryButton>
                             </div>
                         </section>
@@ -757,11 +830,20 @@ const App: React.FC = () => {
 
                     {step === AppStep.GENERATING_BLUEPRINT && <div className="pt-8" ref={loaderRef}><Loader message={currentLoadingMessage} /></div>}
                     
-                    {step === AppStep.BLUEPRINT_GENERATED && blueprint && (
+                    {step === AppStep.BLUEPRINT_GENERATED && blueprints.size > 0 && (
                         <section ref={blueprintRef} className="space-y-8 animate-fade-in">
-                            <BlueprintCard blueprint={blueprint} isOpen={isBlueprintOpen} onToggle={() => setIsBlueprintOpen(!isBlueprintOpen)} />
-                            <div className="pt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                <SecondaryButton onClick={handleExportBlueprint} disabled={false}>Export Blueprint</SecondaryButton>
+                            <div className="space-y-8">
+                                {Array.from(blueprints.values()).map((bp) => (
+                                     <BlueprintCard 
+                                        key={bp.title} 
+                                        blueprint={bp} 
+                                        isOpen={openBlueprints.has(bp.title)} 
+                                        onToggle={() => toggleBlueprint(bp.title)}
+                                        onExport={() => handleExportBlueprint(bp)}
+                                    />
+                                ))}
+                            </div>
+                            <div className="pt-4 grid grid-cols-1">
                                 <PrimaryButton onClick={handleStartOver} disabled={false}>Start Over</PrimaryButton>
                             </div>
                         </section>
