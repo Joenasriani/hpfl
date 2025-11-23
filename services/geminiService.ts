@@ -125,7 +125,7 @@ const diagramSchema = {
     properties: {
         title: { type: Type.STRING },
         type: { type: Type.STRING, enum: ['flowchart', 'architecture', 'userJourney'] },
-        svg: { type: Type.STRING, description: 'A valid, well-formed SVG string representing the diagram. The SVG should be visually clean, well-aligned, and all elements must be contained within the canvas without overlap.' }
+        svg: { type: Type.STRING, description: 'A valid, well-formed SVG string representing the diagram. The SVG should be visually clean, well-aligned, and all elements must be contained within the canvas without overlap. It MUST follow the critical diagram generation rules.' }
     },
     required: ['title', 'type', 'svg']
 };
@@ -224,121 +224,106 @@ export async function analyzeProduct(productName: string): Promise<AnalysisResul
     8.  **Unforeseen Flaws & Hidden Problems**: Dig deeper to uncover less obvious issues that might emerge with long-term use or in specific scenarios.
     9.  **Synergy Search (Internal)**: How could features from this product be combined or enhanced?
     10. **Competitor Cross-Examination**: Briefly analyze 1-2 key competitors to see what they do better or worse.
-    11. **Final Synthesis & Log Creation**: Compile all findings into the structured JSON output. The 'analysisLog' field must provide a detailed narrative of the entire process, explaining the 'why' behind your conclusions for each step.
+    11. **Final Synthesis & Log Creation**: Compile all findings into the 'analysisLog' field. Structure the log with clear headings for each of the 10 preceding steps, detailing your findings for each one.
   `;
 
   const response = await ai.models.generateContent({
-    model: 'gemini-2.5-flash',
+    model: 'gemini-2.5-pro',
     contents: prompt,
     config: {
-      responseMimeType: 'application/json',
-      responseSchema: analysisSchema
-    }
+      responseMimeType: "application/json",
+      responseSchema: analysisSchema,
+    },
   });
-
-  const jsonText = extractJson(response.text);
-  return JSON.parse(jsonText) as AnalysisResult;
+  
+  try {
+    const jsonText = extractJson(response.text || "");
+    return JSON.parse(jsonText) as AnalysisResult;
+  } catch(e) {
+    console.error("Failed to parse analysis JSON:", e);
+    console.error("Raw Gemini Response:", response.text);
+    throw new Error("The AI returned an invalid analysis format. Please try again.");
+  }
 }
-
 
 export async function generateHybridIdeas(analyses: AnalysisResult[], existingIdeas: HybridIdea[]): Promise<IdeaGenerationResult> {
-    const productSummaries = analyses.map(a => `
-        Product: ${a.productName}
-        Strengths: ${a.strengths.join(', ')}
-        Flaws: ${a.flaws.join(', ')}
-        Missed Opportunities: ${a.missedOpportunities.join(', ')}
-    `).join('\n\n');
-
-    const existingIdeasPrompt = existingIdeas.length > 0
-        ? `You have already generated the following ideas, so do not repeat them or generate very similar ones: ${existingIdeas.map(i => i.ideaName).join(', ')}`
-        : '';
-
     const prompt = `
-        Based on the following product analyses, generate exactly 3 novel and innovative hybrid product ideas.
-        Each idea must combine the strengths of the analyzed products to address their collective flaws or missed opportunities.
-        Your output MUST be a single JSON object matching the provided schema.
-        The 'thinkingProcess' field must be a detailed, step-by-step narrative explaining how you combined insights to create each specific idea.
+    You are a world-class product innovator and divergent thinker. Your task is to synthesize the findings from multiple product analyses to generate 2 novel hybrid product ideas.
 
-        ${productSummaries}
+    **Product Analyses Context**:
+    ${JSON.stringify(analyses, null, 2)}
+    
+    ${existingIdeas.length > 0 ? `**Existing Ideas (Do not repeat or create similar concepts)**:
+    ${JSON.stringify(existingIdeas, null, 2)}` : ''}
 
-        ${existingIdeasPrompt}
-
-        For each idea, provide:
-        - ideaName: A catchy, descriptive name.
-        - whatItIs: A concise, one-sentence explanation.
-        - reasoning: A paragraph explaining the logic behind the hybrid concept, linking back to the specific strengths and flaws of the original products.
-        - whyBetter: A paragraph explaining why this hybrid idea is a significant improvement over the existing products.
+    **Your Mission**:
+    1.  **Synthesize**: Deeply analyze the STRENGTHS of one product and the FLAWS/MISSED OPPORTUNITIES of the others.
+    2.  **Hybridize**: Generate 2 completely new product concepts that combine the best features of the analyzed products to solve the identified problems in a unique way.
+    3.  **Articulate**: For each idea, clearly explain what it is, your reasoning for the hybrid combination, and why this new product is fundamentally better than its predecessors.
+    4.  **Log Your Process**: Detail your step-by-step thinking process in the 'thinkingProcess' field. Explain how you connected the dots between the different product analyses to arrive at your conclusions.
+    
+    Your output MUST be a single JSON object that strictly adheres to the provided schema.
     `;
 
     const response = await ai.models.generateContent({
         model: 'gemini-2.5-pro',
         contents: prompt,
         config: {
-            responseMimeType: 'application/json',
-            responseSchema: ideaGenerationSchema
-        }
+            responseMimeType: "application/json",
+            responseSchema: ideaGenerationSchema,
+        },
     });
-    
-    const jsonText = extractJson(response.text);
-    return JSON.parse(jsonText) as IdeaGenerationResult;
+
+    try {
+        const jsonText = extractJson(response.text || "");
+        return JSON.parse(jsonText) as IdeaGenerationResult;
+    } catch(e) {
+        console.error("Failed to parse idea generation JSON:", e);
+        console.error("Raw Gemini Response:", response.text);
+        throw new Error("The AI returned an invalid idea format. Please try again.");
+    }
 }
 
+
 export async function generateBlueprint(analyses: AnalysisResult[], idea: HybridIdea): Promise<Blueprint> {
-    const productContext = analyses.map(a => `
-        - ${a.productName}: Strengths are ${a.strengths.join(', ')}. Flaws are ${a.flaws.join(', ')}.
-    `).join('');
-
     const prompt = `
-        You are an expert product manager, system architect, and business strategist.
-        Create a comprehensive product blueprint for the following hybrid idea: "${idea.ideaName}".
-        The idea is a hybrid of products with the following context:
-        ${productContext}
+    You are a Senior Product Manager and Systems Architect. Your task is to create a detailed product blueprint for the following hybrid product idea.
 
-        Your output MUST be a single, complete JSON object matching the provided schema.
+    **Product Analyses Context**:
+    ${JSON.stringify(analyses, null, 2)}
 
-        **CRITICAL INSTRUCTIONS FOR DIAGRAMS:**
-        You will generate two SVG diagrams: a User Journey Diagram and a System Architecture Diagram.
-        You MUST adhere to the following strict rules for creating these SVGs. FAILURE TO DO SO WILL RESULT IN REJECTION.
+    **Hybrid Idea to Blueprint**:
+    ${JSON.stringify(idea, null, 2)}
 
-        1.  **Spatial Layout and Alignment**:
-            - Boxes/Nodes must be well-spaced (maintain at least a 1-inch equivalent visible space between all elements) and strictly non-overlapping.
-            - Ensure all text within boxes is fully contained and readable; boxes MUST adjust size to fit the content completely, with internal padding.
-            - Align elements precisely using a grid system (e.g., center-aligned horizontally or vertically) to create clear, straight lines and columns.
+    **Instructions**:
+    Flesh out the idea into a comprehensive, actionable blueprint. Be specific, realistic, and strategic.
 
-        2.  **Connectors and Flow**:
-            - All connecting lines, arrows, or paths must be straight and logical, adhering to a 90-degree bend rule (no diagonal or curved connectors unless explicitly requested).
-            - Every connector must start from the center of the source element's side and end at the center of the target element's side. Avoid floating or unattached arrows.
-            - Clearly show the direction of flow using sharp, visible arrowheads.
+    **Diagram Generation Rules**:
+    CRITICAL RULE: For ALL SVG diagrams (User Journey and Architecture), you MUST ONLY use basic, empty shapes (e.g., rectangles, circles, diamonds with transparent or white fills and black borders), solid black arrows for connectors, and clear, legible black text.
+    - DO NOT use any icons, colors, gradients, shadows, complex illustrations, or filled shapes.
+    - Ensure all elements are well-spaced, do not overlap, and are easily readable.
+    - The design MUST be a minimalist, professional, black-and-white wireframe or flowchart style.
+    - The SVG output must be a single, valid SVG string.
+    - All text must be clearly visible and not obscured by other elements.
 
-        3.  **Structure and Hierarchy (for layered diagrams)**:
-            - Use clear horizontal dividers or distinct background layers/colors to separate different structural layers (e.g., Hardware Layer, Device Layer, Application Layer) clearly.
-            - All boxes belonging to a layer must be contained fully within that layer's boundary.
-
-        4.  **Text and Font**:
-            - Use a standard, clean, non-serif font (e.g., Arial, Helvetica) and ensure text size is consistent and legible across the entire diagram.
-            
-        5. **General SVG rules**:
-            - The SVG MUST be a single string, with proper XML/SVG syntax.
-            - It should have a viewbox and be scalable.
-            - Use CSS within a <style> tag for styling (fills, strokes, fonts). Define classes for consistent styling.
-            - Ensure high contrast for accessibility (e.g., dark text on light backgrounds).
-            - The entire diagram must fit perfectly within the SVG canvas.
-
-        **FAILURE CONDITION**: If any box overlaps, any text is unreadable, or any arrow points to an empty space or is not perfectly aligned, the diagram is considered a failure and must be redrawn adhering strictly to these instructions.
-
-        Now, generate the complete blueprint JSON object with the above instructions in mind.
+    Based on these rules, generate a comprehensive blueprint. Your output must be a single, valid JSON object that strictly adheres to the provided schema.
     `;
 
     const response = await ai.models.generateContent({
         model: 'gemini-2.5-pro',
         contents: prompt,
         config: {
-            responseMimeType: 'application/json',
+            responseMimeType: "application/json",
             responseSchema: blueprintSchema,
-             thinkingConfig: { thinkingBudget: 32768 } 
-        }
+        },
     });
 
-    const jsonText = extractJson(response.text);
-    return JSON.parse(jsonText) as Blueprint;
+    try {
+        const jsonText = extractJson(response.text || "");
+        return JSON.parse(jsonText) as Blueprint;
+    } catch(e) {
+        console.error("Failed to parse blueprint JSON:", e);
+        console.error("Raw Gemini Response:", response.text);
+        throw new Error("The AI returned an invalid blueprint format. Please try again.");
+    }
 }
