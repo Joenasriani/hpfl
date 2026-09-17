@@ -3,6 +3,8 @@ import { GoogleGenAI, Type } from "@google/genai";
 type Req = {
   method?: string;
   body?: Record<string, unknown>;
+  headers?: Record<string, string | string[] | undefined>;
+  socket?: { remoteAddress?: string };
 };
 
 type Res = {
@@ -10,9 +12,22 @@ type Res = {
   json: (body: unknown) => unknown;
 };
 
+type RateEntry = {
+  count: number;
+  resetAt: number;
+};
+
 const MODEL = "gemini-2.5-pro";
 const MAX_PRODUCT_NAME = 300;
 const MAX_CONTEXT_BYTES = 120_000;
+const RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
+const RATE_LIMIT_MAX_REQUESTS = 12;
+
+const globalRateState = globalThis as typeof globalThis & {
+  __hpflGeminiRateLimit?: Map<string, RateEntry>;
+};
+const rateLimitStore = globalRateState.__hpflGeminiRateLimit ?? new Map<string, RateEntry>();
+globalRateState.__hpflGeminiRateLimit = rateLimitStore;
 
 const analysisSchema = {
   type: Type.OBJECT,
@@ -156,6 +171,38 @@ const blueprintSchema = {
   ]
 };
 
+function firstHeader(value: string | string[] | undefined): string {
+  return Array.isArray(value) ? value[0] || "" : value || "";
+}
+
+function getClientIp(req: Req): string {
+  const forwarded = firstHeader(req.headers?.["x-forwarded-for"]);
+  if (forwarded) return forwarded.split(",")[0].trim();
+  const realIp = firstHeader(req.headers?.["x-real-ip"]);
+  return realIp || req.socket?.remoteAddress || "unknown";
+}
+
+function rateLimitExceeded(req: Req): boolean {
+  const now = Date.now();
+  const key = getClientIp(req);
+  const current = rateLimitStore.get(key);
+
+  if (!current || current.resetAt <= now) {
+    rateLimitStore.set(key, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
+  } else {
+    current.count += 1;
+    if (current.count > RATE_LIMIT_MAX_REQUESTS) return true;
+  }
+
+  if (rateLimitStore.size > 5000) {
+    for (const [ip, entry] of rateLimitStore) {
+      if (entry.resetAt <= now) rateLimitStore.delete(ip);
+    }
+  }
+
+  return false;
+}
+
 function extractJson(text: string): string {
   const objectStart = text.indexOf("{");
   const arrayStart = text.indexOf("[");
@@ -221,6 +268,10 @@ async function generate(ai: GoogleGenAI, prompt: string, schema: unknown) {
 export default async function handler(req: Req, res: Res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
+  }
+
+  if (rateLimitExceeded(req)) {
+    return res.status(429).json({ error: "Too many AI requests. Please try again later." });
   }
 
   const apiKey = process.env.GEMINI_API_KEY;
