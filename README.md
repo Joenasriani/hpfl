@@ -10,11 +10,16 @@ View your app in AI Studio: https://ai.studio/apps/drive/1nVU-FQhb74BR-xD1hJTt_1
 
 ## Run Locally
 
-**Prerequisites:**  Node.js
-
+**Prerequisites:** Node.js
 
 1. Install dependencies:
    `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+2. Set `GEMINI_API_KEY` in `.env.local`. This key is server-only; do not expose it through a `VITE_` variable or browser bundle.
+3. Run the full app, including the server API route:
+   `npx vercel dev`
+
+`npm run dev` starts the Vite frontend only and does not provide the `/api/gemini` server function.
+
+## Vercel
+
+Set `GEMINI_API_KEY` as a Vercel server environment variable for the project. The browser calls `/api/gemini`; the Gemini credential remains on the server.
