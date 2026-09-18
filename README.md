@@ -1,25 +1,22 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# The 11-Phase Hybrid Product Fusion Lab
 
-# Run and deploy your AI Studio app
+The Hybrid Product Fusion Lab is a product-ideation and concept-development tool for comparing existing products, identifying weaknesses, and exploring new combinations.
 
-This contains everything you need to run your app locally.
+## Core flow
 
-View your app in AI Studio: https://ai.studio/apps/drive/1nVU-FQhb74BR-xD1hJTt_1-zVBjtcrLk
+**product A + product B → identify strengths and weaknesses → generate hybrid directions → test novelty → develop a product blueprint**
 
-## Run Locally
+The application is intended for structured product exploration rather than automatic proof that an idea is commercially viable or genuinely novel.
 
-**Prerequisites:** Node.js
+## Status
 
-1. Install dependencies:
-   `npm install`
-2. Set `GEMINI_API_KEY` in `.env.local`. This key is server-only; do not expose it through a `VITE_` variable or browser bundle.
-3. Run the full app, including the server API route:
-   `npx vercel dev`
+Product-development prototype.
 
-`npm run dev` starts the Vite frontend only and does not provide the `/api/gemini` server function.
+## Run locally
 
-## Vercel
+```bash
+npm install
+npm run dev
+```
 
-Set `GEMINI_API_KEY` as a Vercel server environment variable for the project. The browser calls `/api/gemini`; the Gemini credential remains on the server.
+Some generation features require runtime credentials configured outside source control.
